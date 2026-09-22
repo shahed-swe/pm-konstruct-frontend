@@ -528,7 +528,7 @@ export interface DiaryEntryDto extends WeatherDto {
   noteCount?: number | null;
 }
 
-export interface DiaryEntryRequest {
+export interface DiaryEntryRequest extends WeatherStampRequest {
   jobId?: number | null;
   date?: string | null;
   time?: string | null;
@@ -544,6 +544,26 @@ export interface DiaryEntryRequest {
   issues?: string | null;
   notes?: string | null;
   actionStatus?: string | null;
+}
+
+/**
+ * The reading the client captured, if it managed to.
+ *
+ * Every field is optional: location can be refused, the weather service can
+ * be unconfigured or down, and none of that may stop a supervisor filing
+ * the day's diary.
+ */
+export interface WeatherStampRequest {
+  locationName?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  temperature?: number | null;
+  weatherCondition?: string | null;
+  weatherIcon?: string | null;
+  windSpeedKmh?: number | null;
+  rainfallMm?: number | null;
+  sunriseTime?: string | null;
+  sunsetTime?: string | null;
 }
 
 export interface DiaryNoteDto {

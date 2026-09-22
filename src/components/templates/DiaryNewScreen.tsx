@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/molecules/Select";
+import { WeatherAutoStamp, type CapturedWeather } from "@/components/organisms/WeatherAutoStamp";
 import {
   DiaryNoteEditor,
   makeDraftNote,
@@ -100,6 +101,15 @@ export function DiaryNewScreen() {
   const applied = useRef(0);
   const sectionsRef = useRef(sections);
   sectionsRef.current = sections;
+
+  /**
+   * The reading captured when the page opened.
+   *
+   * Held in a ref because the entry may be created by an autosave that
+   * started before the weather came back, and a stale closure would file the
+   * entry with nothing.
+   */
+  const weatherRef = useRef<CapturedWeather | null>(null);
 
   // Restore an unfinished draft. Photos are not part of it -- a `File`
   // cannot be stored -- so the note text comes back and the pictures have to
@@ -164,6 +174,9 @@ export function DiaryNewScreen() {
         // The substance is in the notes, which is how the diary has been
         // written since notes replaced the single text box.
         workCompleted: "",
+        // Frozen at creation and never refreshed: it is a record of the
+        // conditions that day, not a forecast.
+        ...(weatherRef.current ?? {}),
       });
       entryIdRef.current = entry.id;
       setSavedEntryId(entry.id);
@@ -344,6 +357,14 @@ export function DiaryNewScreen() {
                 <Input {...props} type="time" value={time} onChange={(e) => setTime(e.target.value)} />
               )}
             </Field>
+
+            <div className="sm:col-span-3">
+              <WeatherAutoStamp
+                onChange={(weather) => {
+                  weatherRef.current = weather;
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
 

@@ -21,13 +21,22 @@ export function PageHeader({
 }) {
   return (
     <div className={cn("mb-6 flex flex-wrap items-start justify-between gap-3", className)}>
-      <div className="min-w-0">
-        <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+      <div className="min-w-0 flex-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description !== undefined && (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         )}
       </div>
-      {actions !== undefined && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
+
+      {/*
+        Full width below `sm`, and wrapping.
+        A page with four actions -- the scheduler has print, PDF, maintenance
+        and add-worker -- laid them over each other on a 390px screen, so the
+        last one could not be pressed at all. `shrink-0` was what did it.
+      */}
+      {actions !== undefined && (
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">{actions}</div>
+      )}
     </div>
   );
 }

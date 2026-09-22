@@ -34,7 +34,9 @@ import {
   Loader2,
   Plus,
   Printer,
+  StickyNote,
   UserMinus,
+  Wrench,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -71,8 +73,10 @@ import {
   useDeactivateWorker,
   useDeleteAbsence,
   useDeleteAllocation,
+  useCreateMaintenanceJob,
   useMaintenanceJobs,
   useSchedulableJobs,
+  useSetDayNote,
   useUpdateAllocation,
 } from "@/lib/api/resources/scheduler";
 import { addDays, coversDay, weekDays, weekStart } from "@/lib/calendar/week";
@@ -234,6 +238,8 @@ export function TradeSchedulerScreen() {
   const deactivateWorker = useDeactivateWorker();
   const createAbsence = useCreateAbsence();
   const deleteAbsence = useDeleteAbsence();
+  const createMaintenance = useCreateMaintenanceJob();
+  const setDayNote = useSetDayNote();
 
   const [allocating, setAllocating] = useState<{ worker: WorkerDto; day: string } | null>(null);
   const [allocationTarget, setAllocationTarget] = useState("");
@@ -246,6 +252,11 @@ export function TradeSchedulerScreen() {
   const [absenceFrom, setAbsenceFrom] = useState(today());
   const [absenceTo, setAbsenceTo] = useState(today());
   const [removingWorker, setRemovingWorker] = useState<WorkerDto | null>(null);
+  const [addingMaintenance, setAddingMaintenance] = useState(false);
+  const [maintenanceName, setMaintenanceName] = useState("");
+  const [maintenanceRef, setMaintenanceRef] = useState("");
+  const [noteFor, setNoteFor] = useState<{ jobId: number; day: string } | null>(null);
+  const [noteText, setNoteText] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const [exporting, setExporting] = useState(false);
 
@@ -424,9 +435,18 @@ export function TradeSchedulerScreen() {
               PDF
             </Button>
             {editable && (
-              <Button className="print:hidden" onClick={() => setAddingWorker(true)}>
-                <Plus className="h-4 w-4" /> Add a worker
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="print:hidden"
+                  onClick={() => setAddingMaintenance(true)}
+                >
+                  <Wrench className="h-4 w-4" aria-hidden="true" /> Maintenance job
+                </Button>
+                <Button className="print:hidden" onClick={() => setAddingWorker(true)}>
+                  <Plus className="h-4 w-4" /> Add a worker
+                </Button>
+              </>
             )}
           </>
         }
@@ -566,6 +586,64 @@ export function TradeSchedulerScreen() {
           </table>
         </div>
         </DndContext>
+      )}
+
+      {editable && (board?.workers ?? []).length > 0 && (
+        <Card className="mt-4">
+          <CardContent className="p-4">
+            <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <StickyNote className="h-4 w-4 text-primary" aria-hidden="true" /> Notes on the day
+            </h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              A line against a job for one day — a delivery window, a gate code, whoever is
+              meeting the inspector. Everybody on the board sees it.
+            </p>
+
+            <ul className="space-y-1 text-sm">
+              {(board?.dayNotes ?? []).map((note) => {
+                const job = (jobs ?? []).find((j) => j.id === note.jobId);
+                return (
+                  <li key={note.id} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">
+                      {job === undefined
+                        ? `Job #${note.jobId}`
+                        : labelJob({
+                            jobNumber: job.jobNumber,
+                            jobName: job.name,
+                            jobAddress: job.address,
+                          })}
+                    </span>
+                    <span className="text-muted-foreground">{note.noteDate}</span>
+                    <span className="min-w-0 flex-1">{note.note}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6"
+                      onClick={() => {
+                        setNoteFor({ jobId: note.jobId, day: note.noteDate });
+                        setNoteText(note.note);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 border-dashed"
+              onClick={() => {
+                setNoteFor({ jobId: jobs?.[0]?.id ?? 0, day: days[0]?.key ?? from });
+                setNoteText("");
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add a note
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {(board?.absences ?? []).length > 0 && (
@@ -812,6 +890,160 @@ export function TradeSchedulerScreen() {
               }}
             >
               Record it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addingMaintenance} onOpenChange={setAddingMaintenance}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add a maintenance job</DialogTitle>
+            <DialogDescription>
+              Work that is not one of your build sites — a warranty callback, a repair. Workers
+              can be allocated to it like any other job.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Field label="Name" required>
+              {(props) => (
+                <Input
+                  {...props}
+                  value={maintenanceName}
+                  onChange={(e) => setMaintenanceName(e.target.value)}
+                  placeholder="e.g. Warranty — 14 Rae St"
+                />
+              )}
+            </Field>
+            <Field label="Reference" hint="Optional — a docket or work-order number.">
+              {(props) => (
+                <Input
+                  {...props}
+                  value={maintenanceRef}
+                  onChange={(e) => setMaintenanceRef(e.target.value)}
+                />
+              )}
+            </Field>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddingMaintenance(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={createMaintenance.isPending || maintenanceName.trim() === ""}
+              onClick={() =>
+                createMaintenance.mutate(
+                  {
+                    name: maintenanceName.trim(),
+                    reference: maintenanceRef.trim() === "" ? null : maintenanceRef.trim(),
+                  },
+                  {
+                    onSuccess: () => {
+                      toast({ title: "Maintenance job added", variant: "success" });
+                      setAddingMaintenance(false);
+                      setMaintenanceName("");
+                      setMaintenanceRef("");
+                    },
+                    onError: () =>
+                      toast({ title: "It was not added", variant: "destructive" }),
+                  },
+                )
+              }
+            >
+              Add
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={noteFor !== null} onOpenChange={(open) => !open && setNoteFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>A note on the day</DialogTitle>
+            <DialogDescription>
+              One per job per day. Saving again replaces what is there.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Field label="Job" required>
+              {(props) => (
+                <Select
+                  value={noteFor === null ? "" : String(noteFor.jobId)}
+                  onValueChange={(v) =>
+                    setNoteFor((current) =>
+                      current === null ? null : { ...current, jobId: Number.parseInt(v, 10) },
+                    )
+                  }
+                >
+                  <SelectTrigger id={props.id}>
+                    <SelectValue placeholder="Select a job…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(jobs ?? []).map((job) => (
+                      <SelectItem key={job.id} value={String(job.id)}>
+                        {labelJob({
+                          jobNumber: job.jobNumber,
+                          jobName: job.name,
+                          jobAddress: job.address,
+                        })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
+
+            <Field label="Day" required>
+              {(props) => (
+                <Input
+                  {...props}
+                  type="date"
+                  value={noteFor?.day ?? ""}
+                  onChange={(e) =>
+                    setNoteFor((current) =>
+                      current === null ? null : { ...current, day: e.target.value },
+                    )
+                  }
+                />
+              )}
+            </Field>
+
+            <Field label="Note" required>
+              {(props) => (
+                <Input
+                  {...props}
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="e.g. Concrete pour 7am, gate code 4821"
+                />
+              )}
+            </Field>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNoteFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={setDayNote.isPending || noteText.trim() === "" || noteFor === null}
+              onClick={() => {
+                if (noteFor === null) return;
+                setDayNote.mutate(
+                  { jobId: noteFor.jobId, noteDate: noteFor.day, note: noteText.trim() },
+                  {
+                    onSuccess: () => {
+                      toast({ title: "Note saved", variant: "success" });
+                      setNoteFor(null);
+                    },
+                    onError: () => toast({ title: "It was not saved", variant: "destructive" }),
+                  },
+                );
+              }}
+            >
+              Save the note
             </Button>
           </DialogFooter>
         </DialogContent>

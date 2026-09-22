@@ -41,23 +41,33 @@ function parseRecipients(raw: string): string[] {
     .filter((s) => s !== "");
 }
 
-export function DiaryEmailDialog({
-  entry,
+/**
+ * The dialog itself, shared by the diary entry and the forms.
+ *
+ * The legacy had two of these -- `diary-email-dialog` and
+ * `form-email-dialog` -- with the same fields and different wording for the
+ * same send modes. One is enough.
+ */
+export function EmailDialog({
+  title,
+  defaultSubject,
   open,
   onOpenChange,
+  onSend,
+  isSending,
 }: {
-  entry: DiaryEntryDto;
+  title: string;
+  defaultSubject: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSend: (payload: { to: string[]; subject: string; message: string | null }) => Promise<string>;
+  isSending: boolean;
 }) {
   const toast = useUiStore((s) => s.toast);
   const sendMode = useBrandingStore((s) => s.branding.emailSendMode);
-  const send = useEmailDiaryEntry(entry.id);
 
   const [to, setTo] = useState("");
-  const [subject, setSubject] = useState(
-    `Site diary — ${entry.jobNumber ?? `job ${entry.jobId}`} — ${formatDate(entry.date)}`,
-  );
+  const [subject, setSubject] = useState(defaultSubject);
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -69,30 +79,25 @@ export function DiaryEmailDialog({
     }
     setError(undefined);
 
-    send.mutate(
-      {
-        to: recipients,
-        subject,
-        customMessage: message.trim() === "" ? null : message.trim(),
-      },
-      {
-        onSuccess: (result) => {
-          toast({ title: result.message, variant: "success" });
-          onOpenChange(false);
-        },
-        onError: (cause) =>
-          setError(
-            cause instanceof ApiError ? cause.message : "The email could not be sent.",
-          ),
-      },
-    );
+    void onSend({
+      to: recipients,
+      subject,
+      message: message.trim() === "" ? null : message.trim(),
+    })
+      .then((result) => {
+        toast({ title: result, variant: "success" });
+        onOpenChange(false);
+      })
+      .catch((cause: unknown) =>
+        setError(cause instanceof ApiError ? cause.message : "The email could not be sent."),
+      );
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Email this diary entry</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             {sendMode === "smtp"
               ? "Sent by the server from your company's address."
@@ -126,7 +131,7 @@ export function DiaryEmailDialog({
             )}
           </Field>
 
-          <Field label="Message" hint="Added above the entry itself. Optional.">
+          <Field label="Message" hint="Added above it. Optional.">
             {(props) => (
               <Textarea
                 {...props}
@@ -142,8 +147,8 @@ export function DiaryEmailDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={send.isPending}>
-            {send.isPending ? (
+          <Button onClick={submit} disabled={isSending}>
+            {isSending ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
               <Mail className="h-4 w-4" aria-hidden="true" />
@@ -153,5 +158,32 @@ export function DiaryEmailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The diary entry's own wrapper. */
+export function DiaryEmailDialog({
+  entry,
+  open,
+  onOpenChange,
+}: {
+  entry: DiaryEntryDto;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const send = useEmailDiaryEntry(entry.id);
+
+  return (
+    <EmailDialog
+      title="Email this diary entry"
+      defaultSubject={`Site diary — ${entry.jobNumber ?? `job ${entry.jobId}`} — ${formatDate(entry.date)}`}
+      open={open}
+      onOpenChange={onOpenChange}
+      isSending={send.isPending}
+      onSend={async ({ to, subject, message }) => {
+        const result = await send.mutateAsync({ to, subject, customMessage: message });
+        return result.message;
+      }}
+    />
   );
 }

@@ -11,7 +11,7 @@
  * Photos attach to an item, not to the form, because "the crack in the
  * ensuite" is one line with two pictures.
  */
-import { Camera, FileDown, Loader2, Plus, Trash2 } from "lucide-react";
+import { Camera, FileDown, Loader2, Mail, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/atoms/Button";
@@ -32,11 +32,13 @@ import {
 } from "@/components/molecules/Select";
 import {
   uploadInspectionPhotos,
+  useEmailForm,
   useInspectionDraft,
   useSaveInspection,
 } from "@/lib/api/resources/forms";
 import { useJobs } from "@/lib/api/resources/jobs";
 import { useJobLabel } from "@/lib/jobs/useJobLabel";
+import { EmailDialog } from "@/components/organisms/DiaryEmailDialog";
 import { buildPdf, shareOrDownload } from "@/lib/reports/pdf";
 import { formatDate } from "@/lib/utils/format";
 import { useAuthStore } from "@/stores/auth.store";
@@ -135,7 +137,9 @@ export function InspectionFormScreen() {
 
   const [uploading, setUploading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [emailing, setEmailing] = useState(false);
   const branding = useBrandingStore((s) => s.branding);
+  const emailForm = useEmailForm();
 
   /**
    * The inspection as a PDF, on the company's letterhead.
@@ -496,6 +500,9 @@ export function InspectionFormScreen() {
             </section>
 
             <div className="flex justify-end gap-2 pb-10">
+              <Button variant="outline" onClick={() => setEmailing(true)}>
+                <Mail className="h-4 w-4" aria-hidden="true" /> Email
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => void exportPdf()}
@@ -518,6 +525,27 @@ export function InspectionFormScreen() {
           </>
         )}
       </div>
+
+      {emailing && form !== null && (
+        <EmailDialog
+          title="Email this inspection"
+          defaultSubject={`Site inspection — ${formatDate(form.inspectionDate)}`}
+          open
+          onOpenChange={setEmailing}
+          isSending={emailForm.isPending}
+          onSend={async ({ to, subject, message }) => {
+            const result = await emailForm.mutateAsync({
+              jobId: form.jobId,
+              to,
+              subject,
+              // The form's own contents go in the body the API builds; this
+              // is the covering note above it.
+              body: message ?? "",
+            });
+            return result.message;
+          }}
+        />
+      )}
     </>
   );
 }
