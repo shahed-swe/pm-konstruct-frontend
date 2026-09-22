@@ -7,7 +7,7 @@
  * here -- but branding and email are manager-only, and the sections say so
  * rather than silently vanishing.
  */
-import { Loader2, Palette, Send, Trash2, Upload } from "lucide-react";
+import { Bell, Loader2, Palette, Send, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/atoms/Button";
@@ -34,6 +34,10 @@ import {
   useSetEmailSettings,
   useUploadBrandingImage,
 } from "@/lib/api/resources/settings";
+import {
+  useNotificationPrefs,
+  useSetNotificationPrefs,
+} from "@/lib/api/resources/notifications";
 import { isHex6 } from "@/lib/branding/hex";
 import { useAuthStore } from "@/stores/auth.store";
 import { useBrandingStore } from "@/stores/branding.store";
@@ -460,6 +464,77 @@ function EmailSection() {
   );
 }
 
+/**
+ * Everyone's own notification preferences.
+ *
+ * Not manager-only: these are about what *this* person is told, and a
+ * supervisor who does not want a push at nine at night should be able to
+ * turn it off themselves.
+ */
+function NotificationSection() {
+  const toast = useUiStore((s) => s.toast);
+  const { data: prefs, isLoading } = useNotificationPrefs();
+  const save = useSetNotificationPrefs();
+
+  const options = [
+    {
+      key: "notifyActionNotes" as const,
+      label: "Notes that need action",
+      hint: "When somebody flags a note on one of your jobs, or replies to one.",
+    },
+    {
+      key: "notifyCallForward" as const,
+      label: "Call forward changes",
+      hint: "When a date or a status on one of your programmes changes.",
+    },
+  ];
+
+  if (isLoading) return null;
+
+  return (
+    <Card>
+      <CardHeader className="border-b px-4 py-2.5">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Bell className="h-4 w-4 text-primary" aria-hidden="true" /> Your notifications
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 p-4">
+        <p className="text-xs text-muted-foreground">
+          What you are told when somebody else changes something. The bell in the header shows
+          these; push sends them to your phone as well.
+        </p>
+
+        {options.map((option) => (
+          <div
+            key={option.key}
+            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{option.label}</p>
+              <p className="text-xs text-muted-foreground">{option.hint}</p>
+            </div>
+            <Switch
+              checked={prefs?.[option.key] ?? true}
+              aria-label={option.label}
+              onCheckedChange={(checked) =>
+                // One key at a time: the API merges, so this does not need to
+                // know the state of the other switch.
+                save.mutate(
+                  { [option.key]: checked },
+                  {
+                    onError: () =>
+                      toast({ title: "That preference was not saved", variant: "destructive" }),
+                  },
+                )
+              }
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsScreen() {
   const user = useAuthStore((s) => s.user);
   const isManager = user?.role === "MANAGER";
@@ -468,20 +543,25 @@ export function SettingsScreen() {
     <>
       <PageHeader title="Settings" description="How the product looks and how it sends email." />
 
-      {isManager ? (
-        <div className="max-w-3xl space-y-4">
-          <BrandingSection />
-          <EmailSection />
-        </div>
-      ) : (
-        <Card className="max-w-3xl">
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">
-              Branding and email are set by a manager. Ask yours if something here needs changing.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <div className="max-w-3xl space-y-4">
+        <NotificationSection />
+
+        {isManager ? (
+          <>
+            <BrandingSection />
+            <EmailSection />
+          </>
+        ) : (
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground">
+                Branding and email are set by a manager. Ask yours if something there needs
+                changing.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </>
   );
 }

@@ -20,6 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/molecules/Sheet";
+import { NotificationBell } from "@/components/organisms/NotificationBell";
 import { useLogout } from "@/lib/api/resources/auth";
 import { canAccess, isManagerOrSupervisor } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils/cn";
@@ -200,16 +201,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <span className="truncate text-sm font-medium">{user?.name ?? ""}</span>
 
+          <div className="ml-auto flex items-center gap-1">
+          <NotificationBell />
+
           <Button
             variant="ghost"
             size="sm"
             onClick={signOut}
             disabled={logout.isPending}
-            className="ml-auto"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only sm:not-sr-only">Sign out</span>
           </Button>
+          </div>
         </header>
 
         <main id="main" className="min-w-0 flex-1 p-4 md:p-6">

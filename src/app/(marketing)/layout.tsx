@@ -1,9 +1,10 @@
 /**
  * The public pages: landing and pricing.
  *
- * No session required and no application chrome -- these are what a
- * prospective company sees before signing up.
+ * No session and no application chrome -- these are what a prospective
+ * company sees before signing up. Each page brings its own header and
+ * footer, because the landing page's sits over the hero.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-dvh bg-background">{children}</div>;
+  return <>{children}</>;
 }
