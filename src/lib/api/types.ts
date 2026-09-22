@@ -477,6 +477,19 @@ export interface DiaryEntryDto extends WeatherDto {
   actionRaisedBy: number | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * The job's three names, so the client can label the entry by whichever
+   * one the company's branding selects. Sent by the legacy under these
+   * names; absent on a create or update reply.
+   */
+  jobName?: string | null;
+  jobNumber?: string | null;
+  jobAddress?: string | null;
+  /**
+   * Who wrote it. Null when the author's user row has been deleted; the
+   * entry itself stays, because it is a site record.
+   */
+  authorName?: string | null;
 }
 
 export interface DiaryEntryRequest {
