@@ -41,6 +41,17 @@ export default async function globalTeardown() {
       }
     }
 
+    // Call-forward items the tests added to the seeded jobs.
+    const cf = await context.get("/api/call-forward?jobId=1", { headers });
+    if (cf.ok()) {
+      const cfItems = (await cf.json()) as { id: number; title: string }[];
+      for (const item of cfItems) {
+        if (item.title.startsWith("E2E ")) {
+          await context.delete(`/api/call-forward/${item.id}`, { headers });
+        }
+      }
+    }
+
     // Diary entries the tests wrote against the seeded jobs. Matched on the
     // note text rather than the entry, because an entry created by these
     // tests has no other distinguishing mark.

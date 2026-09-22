@@ -20,6 +20,7 @@ import type {
   JobLinkRequest,
   JobTaskDto,
   JobPatchRequest,
+  JobTaskPatchRequest,
   JobTaskRequest,
   JobUpsertRequest,
 } from "@/lib/api/types";
@@ -156,7 +157,7 @@ export function useCreateJobTask(jobId: number) {
 export function useUpdateJobTask(jobId: number) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: JobTaskRequest & { id: number }) =>
+    mutationFn: ({ id, ...body }: JobTaskPatchRequest & { id: number }) =>
       api.put<JobTaskDto>(`/tasks/${id}`, body),
     onSuccess: () => void client.invalidateQueries({ queryKey: keys.jobs.tasks(jobId) }),
   });

@@ -24,7 +24,8 @@ export interface UiState {
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileNavOpen: (open: boolean) => void;
-  toast: (toast: Omit<Toast, "id">) => string;
+  /** `variant` defaults to a plain notice; most callers only need a title. */
+  toast: (toast: Omit<Toast, "id" | "variant"> & { variant?: Toast["variant"] }) => string;
   dismissToast: (id: string) => void;
 }
 
@@ -46,7 +47,11 @@ export const useUiStore = createPersistedStore<UiState>(
 
     toast: (toast) => {
       const id = `t${++toastSeq}`;
-      set((s) => ({ toasts: [...s.toasts, { ...toast, id }] }), false, "ui/toast");
+      set(
+        (s) => ({ toasts: [...s.toasts, { variant: "default", ...toast, id }] }),
+        false,
+        "ui/toast",
+      );
       return id;
     },
 

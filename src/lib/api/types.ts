@@ -241,6 +241,32 @@ export interface CallForwardRequest {
   localParent?: number | null;
 }
 
+/**
+ * A partial update to a programme item.
+ *
+ * `PUT /call-forward/{id}` has always been partial: the legacy service
+ * copied across only the keys that arrived. The board relies on it -- a
+ * supervisor typing one date sends that date, not the whole row -- and
+ * requiring the rest would make each edit a read-modify-write that
+ * overwrites whatever a colleague changed in the meantime.
+ *
+ * Absent leaves a field alone; an explicit `null` clears it, which is the
+ * only way to un-set a date that was entered by mistake.
+ */
+export interface CallForwardPatchRequest {
+  title?: string | null;
+  itemType?: string | null;
+  status?: string | null;
+  supplierTrade?: string | null;
+  estStart?: string | null;
+  estFinish?: string | null;
+  actualStart?: string | null;
+  actualFinish?: string | null;
+  notes?: string | null;
+  sortOrder?: number | null;
+  parentId?: number | null;
+}
+
 export interface BulkCreateRequest {
   jobId: number;
   items: CallForwardRequest[];
@@ -853,6 +879,19 @@ export interface JobTaskRequest {
   sortOrder?: number | null;
 }
 
+/**
+ * A partial update to a task.
+ *
+ * The task list toggles a status or renames a line without sending the
+ * rest, as the legacy allowed. An explicit `null` clears the notes.
+ */
+export interface JobTaskPatchRequest {
+  title?: string | null;
+  status?: string | null;
+  notes?: string | null;
+  sortOrder?: number | null;
+}
+
 export interface TaskNotesRequest {
   notes?: string | null;
 }
@@ -1087,6 +1126,21 @@ export interface ProgressRequest {
   milestone?: string | null;
   description?: string | null;
   photos?: string[];
+}
+
+/**
+ * A partial update to a progress record.
+ *
+ * The progress page edits one field at a time -- a percentage nudged, a
+ * milestone named -- and the legacy service copied across only what
+ * arrived.
+ */
+export interface ProgressPatchRequest {
+  date?: string | null;
+  percentComplete?: number | null;
+  milestone?: string | null;
+  description?: string | null;
+  photos?: string[] | null;
 }
 
 export interface ProgressListQuery {
@@ -1509,6 +1563,26 @@ export interface UserRequest {
   /** Defaults to active: the admin form's checkbox starts ticked. */
   active?: boolean;
   /** Required on create. On update, absent or empty means "unchanged". */
+  password?: string | null;
+}
+
+/**
+ * A partial update to a user.
+ *
+ * The users page deactivates someone by sending `{"active": false}`, and
+ * the legacy service copied across only the keys that arrived. Requiring
+ * the whole record would make a role change and a deactivation race each
+ * other, with the later one silently undoing the earlier.
+ *
+ * `password` keeps its own rule: absent *or* empty means unchanged, which
+ * is what the form sends when the field is left blank.
+ */
+export interface UserPatchRequest {
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  active?: boolean | null;
+  phone?: string | null;
   password?: string | null;
 }
 

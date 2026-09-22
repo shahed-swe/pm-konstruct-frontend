@@ -15,6 +15,7 @@ import type {
   PermissionDto,
   RecoveryCodeDto,
   UserDto,
+  UserPatchRequest,
   UserRequest,
 } from "@/lib/api/types";
 
@@ -37,7 +38,7 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...body }: UserRequest & { id: number }) =>
+    mutationFn: ({ id, ...body }: UserPatchRequest & { id: number }) =>
       api.put<UserDto>(`/users/${id}`, body),
     onSuccess: () => void client.invalidateQueries({ queryKey: keys.users.all }),
   });
