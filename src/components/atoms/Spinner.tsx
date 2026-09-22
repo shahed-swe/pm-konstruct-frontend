@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils/cn";
  * The busy indicator, matching the one the current app shows while the
  * session resolves.
  */
-export function Spinner({ className, label = "Loading" }: { className?: string; label?: string }) {
+export function Spinner({ className, label = "Loading" }: { className?: string | undefined; label?: string | undefined }) {
   return (
     <span role="status" aria-live="polite" className="inline-flex items-center gap-2">
       <span

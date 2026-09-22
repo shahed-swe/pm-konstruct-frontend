@@ -16,10 +16,10 @@ export function EmptyState({
   className,
 }: {
   title: string;
-  description?: string;
-  action?: ReactNode;
-  icon?: ReactNode;
-  className?: string;
+  description?: string | undefined;
+  action?: ReactNode | undefined;
+  icon?: ReactNode | undefined;
+  className?: string | undefined;
 }) {
   return (
     <div className={cn("flex flex-col items-center gap-3 rounded-lg border border-dashed p-10 text-center", className)}>

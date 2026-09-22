@@ -32,15 +32,15 @@ export function ConfirmDialog({
   open,
   onOpenChange,
 }: {
-  trigger?: ReactNode;
+  trigger?: ReactNode | undefined;
   title: string;
   description: string;
   confirmLabel: string;
-  cancelLabel?: string;
-  destructive?: boolean;
+  cancelLabel?: string | undefined;
+  destructive?: boolean | undefined;
   onConfirm: () => void;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  open?: boolean | undefined;
+  onOpenChange?: ((open: boolean) => void) | undefined;
 }) {
   return (
     <AlertDialog {...(open === undefined ? {} : { open })} {...(onOpenChange === undefined ? {} : { onOpenChange })}>

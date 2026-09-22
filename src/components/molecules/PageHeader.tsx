@@ -15,9 +15,9 @@ export function PageHeader({
   className,
 }: {
   title: string;
-  description?: string;
-  actions?: ReactNode;
-  className?: string;
+  description?: string | undefined;
+  actions?: ReactNode | undefined;
+  className?: string | undefined;
 }) {
   return (
     <div className={cn("mb-6 flex flex-wrap items-start justify-between gap-3", className)}>

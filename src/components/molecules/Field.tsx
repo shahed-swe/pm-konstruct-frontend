@@ -19,8 +19,8 @@ interface FieldProps {
   /** Shown under the control, and announced with it. */
   error?: string | undefined;
   hint?: string | undefined;
-  required?: boolean;
-  className?: string;
+  required?: boolean | undefined;
+  className?: string | undefined;
   children: (props: {
     id: string;
     "aria-describedby": string | undefined;

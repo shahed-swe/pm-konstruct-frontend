@@ -705,6 +705,41 @@ export interface JobDto {
   contact2Email: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * The manager's name, which the jobs page shows rather than the id.
+   *
+   * Null when the job has no manager, or when the manager's user row has
+   * been deleted. Sent by the legacy under this name.
+   */
+  managerName?: string | null;
+  /**
+   * The *first* assigned supervisor's name -- not necessarily the primary
+   * one. That is what the legacy sent here, and the jobs page's supervisor
+   * stack picks the primary out of `supervisors` itself.
+   */
+  supervisorName?: string | null;
+  /**
+   * Everyone assigned, oldest assignment first.
+   *
+   * Present on the list and the detail response, absent on a create or
+   * update reply -- which is also what the legacy did, and why the jobs
+   * page refetches the list after saving rather than patching it in place.
+   */
+  supervisors?: JobSupervisorDto[] | null;
+}
+
+/**
+ * A supervisor on a job, as the list carries them.
+ */
+export interface JobSupervisorDto {
+  /**
+   * The **user's** id. Named `id` because that is the field the existing
+   * client reads; `JobAssignment` in the domain calls it `user_id` for
+   * the reason recorded there.
+   */
+  id: number;
+  name: string;
+  isPrimary: boolean;
 }
 
 export interface JobUpsertRequest {
@@ -724,6 +759,39 @@ export interface JobUpsertRequest {
   contact2Name: string | null;
   contact2Phone: string | null;
   contact2Email: string | null;
+}
+
+/**
+ * A partial job update.
+ *
+ * `PUT /jobs/{id}` has always been a *partial* update: the legacy service
+ * spread whatever keys arrived onto the row and left the rest alone. Several
+ * screens rely on it -- archiving from the row menu sends only `status`, the
+ * notes panel autosaves only `description`, and clearing a stale cloud link
+ * sends only `dropboxPath`. Requiring the whole job would make each of those
+ * a read-modify-write that can clobber a concurrent edit.
+ *
+ * An absent key leaves the field alone. An explicit `null` clears it, which
+ * is why the nullable fields are `Option<Option<T>>` rather than `Option<T>`
+ * -- without the distinction there is no way to erase a client email.
+ */
+export interface JobPatchRequest {
+  name: string | null;
+  jobNumber: string | null;
+  client: string | null;
+  address: string | null;
+  status: string | null;
+  clientNumber?: string | null;
+  clientEmail?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  managerId?: number | null;
+  supervisorId?: number | null;
+  dropboxPath?: string | null;
+  description?: string | null;
+  contact2Name?: string | null;
+  contact2Phone?: string | null;
+  contact2Email?: string | null;
 }
 
 export interface AssignmentDto {
