@@ -17,7 +17,7 @@ export function JobCreateScreen() {
   const toast = useUiStore((s) => s.toast);
   const { data: users } = useUsers();
   const create = useCreateJob();
-  const [error, setError] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<{ message: string; field?: string } | undefined>(undefined);
 
   const supervisors = useMemo(() => (users ?? []).filter((u) => u.role === "SUPERVISOR"), [users]);
   const managers = useMemo(() => (users ?? []).filter((u) => u.role === "MANAGER"), [users]);
@@ -35,8 +35,8 @@ export function JobCreateScreen() {
         // has faded leaves the user staring at a form with no explanation.
         setError(
           cause instanceof ApiError
-            ? cause.message
-            : "The job could not be created. Check the fields and try again.",
+            ? { message: cause.message, ...(cause.field === undefined ? {} : { field: cause.field }) }
+            : { message: "The job could not be created. Check the fields and try again." },
         );
       },
     });

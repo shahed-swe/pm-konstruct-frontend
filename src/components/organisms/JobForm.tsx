@@ -147,8 +147,15 @@ interface JobFormProps {
   onSubmit: (values: JobFormValues) => void;
   isSubmitting: boolean;
   submitLabel?: string | undefined;
-  /** A server-side failure, shown above the buttons rather than as a toast. */
-  error?: string | undefined;
+  /**
+   * A server-side failure.
+   *
+   * When the API names a field -- a duplicate job number, a malformed email
+   * -- the message is attached to that input, where the user is looking.
+   * Anything unattributable is shown above the buttons. A toast alone is not
+   * enough: it fades, and the form is left rejected with no explanation.
+   */
+  error?: { message: string; field?: string | undefined } | undefined;
 }
 
 const EMPTY: JobFormValues = {
@@ -196,6 +203,12 @@ export function JobForm({
     defaultValues?.contact2Name !== undefined && defaultValues.contact2Name !== "",
   );
 
+  // The API's field names match the form's, because both are the DTO's.
+  const serverField =
+    error?.field !== undefined && error.field in EMPTY ? (error.field as keyof JobFormValues) : null;
+  const errorFor = (field: keyof JobFormValues): string | undefined =>
+    errors[field]?.message ?? (serverField === field ? error?.message : undefined);
+
   const status = watch("status");
   const managerId = watch("managerId");
   const supervisorId = watch("supervisorId");
@@ -204,12 +217,12 @@ export function JobForm({
     <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="space-y-5" noValidate>
       <Section title="Project identity">
         <Row>
-          <Field label="Job number" required error={errors.jobNumber?.message}>
+          <Field label="Job number" required error={errorFor("jobNumber")}>
             {(props) => (
               <Input {...props} {...register("jobNumber")} className="font-mono" placeholder="e.g. BSC-001" />
             )}
           </Field>
-          <Field label="Status" required error={errors.status?.message}>
+          <Field label="Status" required error={errorFor("status")}>
             {(props) => (
               <Select value={status} onValueChange={(v) => setValue("status", v as JobFormValues["status"])}>
                 <SelectTrigger id={props.id} aria-describedby={props["aria-describedby"]}>
@@ -227,13 +240,13 @@ export function JobForm({
           </Field>
         </Row>
 
-        <Field label="Project name" error={errors.name?.message}>
+        <Field label="Project name" error={errorFor("name")}>
           {(props) => (
             <Input {...props} {...register("name")} placeholder="e.g. Riverside Apartments Stage 2" />
           )}
         </Field>
 
-        <Field label="Site address" required error={errors.address?.message}>
+        <Field label="Site address" required error={errorFor("address")}>
           {(props) => (
             <Input {...props} {...register("address")} placeholder="e.g. 123 Main Street, Sydney NSW 2000" />
           )}
@@ -242,16 +255,16 @@ export function JobForm({
 
       <Section title="Client">
         <Row>
-          <Field label="Client name" required error={errors.client?.message}>
+          <Field label="Client name" required error={errorFor("client")}>
             {(props) => <Input {...props} {...register("client")} placeholder="e.g. ABC Developments" />}
           </Field>
-          <Field label="Client number or phone" error={errors.clientNumber?.message}>
+          <Field label="Client number or phone" error={errorFor("clientNumber")}>
             {(props) => (
               <Input {...props} {...register("clientNumber")} placeholder="e.g. CL-123 or 0400 000 000" />
             )}
           </Field>
         </Row>
-        <Field label="Client email" error={errors.clientEmail?.message}>
+        <Field label="Client email" error={errorFor("clientEmail")}>
           {(props) => (
             <Input {...props} {...register("clientEmail")} type="email" placeholder="client@example.com" />
           )}
@@ -280,14 +293,14 @@ export function JobForm({
               </Button>
             </div>
             <Row>
-              <Field label="Name" error={errors.contact2Name?.message}>
+              <Field label="Name" error={errorFor("contact2Name")}>
                 {(props) => <Input {...props} {...register("contact2Name")} placeholder="e.g. Jane Smith" />}
               </Field>
-              <Field label="Phone" error={errors.contact2Phone?.message}>
+              <Field label="Phone" error={errorFor("contact2Phone")}>
                 {(props) => <Input {...props} {...register("contact2Phone")} placeholder="e.g. 0400 000 000" />}
               </Field>
             </Row>
-            <Field label="Email" error={errors.contact2Email?.message}>
+            <Field label="Email" error={errorFor("contact2Email")}>
               {(props) => (
                 <Input {...props} {...register("contact2Email")} type="email" placeholder="jane@example.com" />
               )}
@@ -302,10 +315,10 @@ export function JobForm({
 
       <Section title="Timeline">
         <Row>
-          <Field label="Start date" error={errors.startDate?.message}>
+          <Field label="Start date" error={errorFor("startDate")}>
             {(props) => <Input {...props} {...register("startDate")} type="date" />}
           </Field>
-          <Field label="Completion date" error={errors.endDate?.message}>
+          <Field label="Completion date" error={errorFor("endDate")}>
             {(props) => <Input {...props} {...register("endDate")} type="date" />}
           </Field>
         </Row>
@@ -360,7 +373,7 @@ export function JobForm({
       )}
 
       <Section title="Additional">
-        <Field label="Notes" error={errors.description?.message}>
+        <Field label="Notes" error={errorFor("description")}>
           {(props) => (
             <Textarea
               {...props}
@@ -372,9 +385,9 @@ export function JobForm({
         </Field>
       </Section>
 
-      {error !== undefined && (
+      {error !== undefined && serverField === null && (
         <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+          {error.message}
         </p>
       )}
 
