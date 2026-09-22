@@ -1,0 +1,151 @@
+/*
+ * Design tokens, taken from the existing application's `src/index.css`.
+ *
+ * The values are copied rather than re-chosen: this is a rebuild, and a
+ * slightly different orange would be visible on every screen the client
+ * already knows. Colours are stored as bare HSL triples so a company's own
+ * primary colour can be substituted at runtime -- see `applyBranding`.
+ */
+
+:root {
+  /* Clean professional light theme */
+  --background: 210 25% 95%;
+  --foreground: 220 25% 11%;
+  --border: 215 20% 85%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 220 25% 11%;
+  --card-border: 215 20% 87%;
+
+  --sidebar: 222 32% 13%;
+  --sidebar-foreground: 210 20% 90%;
+  --sidebar-border: 215 28% 22%;
+  --sidebar-primary: 15 82% 51%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 215 28% 22%;
+  --sidebar-accent-foreground: 210 20% 95%;
+  --sidebar-ring: 15 82% 51%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 25% 11%;
+  --popover-border: 215 20% 85%;
+
+  --primary: 15 82% 51%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 210 20% 90%;
+  --secondary-foreground: 220 25% 11%;
+
+  --muted: 210 20% 91%;
+  --muted-foreground: 215 15% 42%;
+
+  --accent: 15 82% 51%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 78% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --input: 215 20% 89%;
+  --ring: 15 82% 51%;
+
+  --chart-1: 15 82% 51%;
+  --chart-2: 215 75% 52%;
+  --chart-3: 20 88% 52%;
+  --chart-4: 160 58% 40%;
+  --chart-5: 280 60% 58%;
+
+  --radius: 0.5rem;
+
+  --shadow-xs: 0 1px 3px 0 hsl(220 25% 10% / 0.08);
+  --shadow-sm: 0 1px 3px 0 hsl(220 25% 10% / 0.08), 0 2px 4px -1px hsl(220 25% 10% / 0.06);
+  --shadow-md: 0 2px 6px 0 hsl(220 25% 10% / 0.08), 0 4px 8px -2px hsl(220 25% 10% / 0.08);
+  --shadow-lg: 0 4px 8px 0 hsl(220 25% 10% / 0.08), 0 8px 16px -4px hsl(220 25% 10% / 0.1);
+  --shadow-xl: 0 8px 16px 0 hsl(220 25% 10% / 0.1), 0 16px 24px -8px hsl(220 25% 10% / 0.1);
+
+  /* Surfaces that lift on hover, rather than changing colour. */
+  --elevate-1: rgb(0 0 0 / 0.03);
+  --elevate-2: rgb(0 0 0 / 0.06);
+}
+
+:root[data-theme="dark"] {
+  /* Industrial dark mode */
+  --background: 222 25% 8%;
+  --foreground: 210 20% 95%;
+  --border: 215 25% 15%;
+
+  --card: 222 25% 10%;
+  --card-foreground: 210 20% 98%;
+  --card-border: 215 25% 16%;
+
+  --sidebar: 222 25% 7%;
+  --sidebar-foreground: 210 20% 90%;
+  --sidebar-border: 215 25% 14%;
+  --sidebar-accent: 215 25% 15%;
+  --sidebar-accent-foreground: 210 20% 98%;
+
+  --popover: 222 25% 10%;
+  --popover-foreground: 210 20% 98%;
+  --popover-border: 215 25% 16%;
+
+  --secondary: 215 25% 16%;
+  --secondary-foreground: 210 20% 98%;
+
+  --muted: 215 25% 16%;
+  --muted-foreground: 215 20% 65%;
+
+  --accent-foreground: 210 20% 98%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 20% 98%;
+
+  --input: 215 25% 16%;
+
+  --chart-2: 210 20% 45%;
+  --chart-3: 20 90% 55%;
+  --chart-4: 160 60% 45%;
+
+  --elevate-1: rgb(255 255 255 / 0.04);
+  --elevate-2: rgb(255 255 255 / 0.09);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: 222 25% 8%;
+    --foreground: 210 20% 95%;
+    --border: 215 25% 15%;
+
+    --card: 222 25% 10%;
+    --card-foreground: 210 20% 98%;
+    --card-border: 215 25% 16%;
+
+    --sidebar: 222 25% 7%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-border: 215 25% 14%;
+    --sidebar-accent: 215 25% 15%;
+    --sidebar-accent-foreground: 210 20% 98%;
+
+    --popover: 222 25% 10%;
+    --popover-foreground: 210 20% 98%;
+    --popover-border: 215 25% 16%;
+
+    --secondary: 215 25% 16%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 215 25% 16%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+
+    --input: 215 25% 16%;
+
+    --chart-2: 210 20% 45%;
+    --chart-3: 20 90% 55%;
+    --chart-4: 160 60% 45%;
+
+    --elevate-1: rgb(255 255 255 / 0.04);
+    --elevate-2: rgb(255 255 255 / 0.09);
+  }
+}
