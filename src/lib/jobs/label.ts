@@ -10,9 +10,9 @@
 import type { BrandingDto } from "@/lib/api/types";
 
 export interface JobRef {
-  jobNumber?: string | null;
-  jobName?: string | null;
-  jobAddress?: string | null;
+  jobNumber?: string | null | undefined;
+  jobName?: string | null | undefined;
+  jobAddress?: string | null | undefined;
 }
 
 export type JobDisplayMode = "job_number" | "job_name" | "job_address";

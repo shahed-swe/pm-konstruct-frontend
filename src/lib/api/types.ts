@@ -928,6 +928,11 @@ export interface MediaDto {
   fileSize: number;
   uploadedBy: number | null;
   createdAt: string;
+  /**
+   * Where the browser fetches the bytes: a same-origin path this API
+   * serves, not the object key and not a signed URL.
+   */
+  url: string;
 }
 
 export interface DownloadUrlDto {

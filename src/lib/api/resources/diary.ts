@@ -127,6 +127,17 @@ function invalidateNotes(client: ReturnType<typeof useQueryClient>, entryId: num
   void client.invalidateQueries({ queryKey: keys.dashboard.all });
 }
 
+/**
+ * Adds a note outside a hook.
+ *
+ * The new-entry screen only learns the entry id while it is saving, and a
+ * hook cannot be called at that point. Nothing is invalidated because the
+ * page navigates to the new entry, which fetches everything fresh.
+ */
+export function createDiaryNote(entryId: number, body: DiaryNoteRequest): Promise<DiaryNoteDto> {
+  return api.post<DiaryNoteDto>(`/site-diary/${entryId}/notes`, body);
+}
+
 export function useAddDiaryNote(entryId: number) {
   const client = useQueryClient();
   return useMutation({

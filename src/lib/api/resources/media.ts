@@ -58,7 +58,7 @@ export function useJobFiles(jobId: number, enabled = true) {
  * all of them at the end: a supervisor who loses signal half way through a
  * batch keeps the photos that made it, instead of losing all twenty.
  */
-async function uploadFiles(
+export async function uploadMediaFiles(
   owner: MediaOwner,
   files: File[],
   noteId: number | null,
@@ -119,7 +119,7 @@ export function useUploadMedia(owner: MediaOwner) {
       files: File[];
       noteId?: number | null;
       onProgress?: (done: number, total: number) => void;
-    }) => uploadFiles(owner, files, noteId, onProgress),
+    }) => uploadMediaFiles(owner, files, noteId, onProgress),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ownerKey(owner) });
       if (owner.kind === "job") {
