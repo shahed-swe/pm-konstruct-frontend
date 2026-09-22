@@ -41,18 +41,22 @@ export function Field({ label, error, hint, required = false, className, childre
   return (
     <div className={cn("space-y-1.5", className)}>
       {/*
-        The asterisk is drawn by CSS rather than written into the label.
-        Inside the element it becomes part of the field's accessible name --
-        "Job*" instead of "Job" -- which every screen reader then reads out
-        and every test then has to spell. `aria-required` on the control is
-        what actually carries the meaning.
+        The asterisk sits *outside* the `<label>`.
+
+        Anything inside it -- an `aria-hidden` span, or CSS generated content
+        -- still ends up in the field's accessible name, so a required field
+        announces as "Job star" rather than "Job". Putting it alongside keeps
+        the familiar visual convention and leaves the name clean;
+        `aria-required` on the control is what carries the meaning.
       */}
-      <Label
-        htmlFor={id}
-        className={cn(required && "after:ml-0.5 after:text-destructive after:content-['*']")}
-      >
-        {label}
-      </Label>
+      <div className="flex items-center gap-0.5">
+        <Label htmlFor={id}>{label}</Label>
+        {required && (
+          <span aria-hidden="true" className="text-destructive">
+            *
+          </span>
+        )}
+      </div>
 
       {children({
         id,

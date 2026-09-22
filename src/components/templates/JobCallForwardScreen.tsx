@@ -8,7 +8,7 @@
  * to what is there; replacing clears it first, which is destructive enough
  * to ask twice.
  */
-import { FileStack, Loader2, Save } from "lucide-react";
+import { FileSpreadsheet, FileStack, GanttChartSquare, Loader2, Printer, Save, Table2 } from "lucide-react";
 import { useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/atoms/Button";
@@ -27,12 +27,20 @@ import {
 } from "@/components/molecules/Dialog";
 import { Field } from "@/components/molecules/Field";
 import { PageHeader } from "@/components/molecules/PageHeader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/molecules/Tabs";
 import { CallForwardBoard } from "@/components/organisms/CallForwardBoard";
+import { GanttChart } from "@/components/organisms/GanttChart";
+import { useCalendar } from "@/lib/api/resources/dashboard";
 import {
+  buildTree,
+  flattenTree,
   useApplyTemplate,
+  useCallForwardItems,
   useCallForwardTemplates,
   useCreateTemplate,
 } from "@/lib/api/resources/callForward";
+import { downloadXlsx } from "@/lib/reports/xlsx";
+import { formatDate } from "@/lib/utils/format";
 import { useJob } from "@/lib/api/resources/jobs";
 import { canEdit } from "@/lib/auth/permissions";
 import { useAuthStore } from "@/stores/auth.store";
@@ -109,6 +117,16 @@ function ApplyTemplateRow({
   );
 }
 
+/** The job's programme as a timeline, the same chart the dashboard draws. */
+function ProgrammeTimeline({ jobId }: { jobId: number }) {
+  const { data, isLoading } = useCalendar({ gantt: true, jobId });
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <GanttChart events={data} isLoading={isLoading} />
+    </div>
+  );
+}
+
 export function JobCallForwardScreen({ jobId }: { jobId: number }) {
   const user = useAuthStore((s) => s.user);
   const permissions = useAuthStore((s) => s.permissions);
@@ -119,9 +137,56 @@ export function JobCallForwardScreen({ jobId }: { jobId: number }) {
   const { data: templates } = useCallForwardTemplates();
   const createTemplate = useCreateTemplate();
 
+  const { data: items } = useCallForwardItems({ jobId });
   const [saving, setSaving] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
+  const [exporting, setExporting] = useState(false);
+
+  /**
+   * The programme as a spreadsheet.
+   *
+   * Flattened in the order the board draws it, with the depth as an indent
+   * in the title -- a spreadsheet has no tree, and losing the structure
+   * entirely makes the export hard to read against the screen.
+   */
+  async function exportXlsx() {
+    setExporting(true);
+    try {
+      const rows = flattenTree(buildTree(items ?? [])).map((node) => [
+        `${"    ".repeat(node.depth)}${node.title}`,
+        node.itemType === "HEADER" ? "Stage" : node.itemType === "STAGE_CLAIM" ? "Stage claim" : "Task",
+        node.supplierTrade ?? "",
+        formatDate(node.estStart, ""),
+        formatDate(node.estFinish, ""),
+        formatDate(node.actualStart, ""),
+        formatDate(node.actualFinish, ""),
+        node.status.replace(/_/g, " "),
+        node.delayStatus === "delayed" ? `${node.delayDays ?? 0} days late` : node.delayStatus.replace(/_/g, " "),
+      ]);
+
+      await downloadXlsx(
+        `call-forward-${job?.jobNumber ?? jobId}`,
+        "Call forward",
+        [
+          { header: "Item", width: 42 },
+          { header: "Type" },
+          { header: "Trade" },
+          { header: "Est. start" },
+          { header: "Est. finish" },
+          { header: "Actual start" },
+          { header: "Actual finish" },
+          { header: "Status" },
+          { header: "Tracking" },
+        ],
+        rows,
+      );
+    } catch {
+      toast({ title: "The spreadsheet could not be produced", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function saveAsTemplate() {
     const name = templateName.trim();
@@ -161,16 +226,51 @@ export function JobCallForwardScreen({ jobId }: { jobId: number }) {
               : `${job.address === "" ? job.name : job.address} · ${job.jobNumber}`
           }
           actions={
-            editable ? (
-              <Button variant="outline" onClick={() => setSaving(true)}>
-                <Save className="h-4 w-4" aria-hidden="true" /> Save as template
+            <>
+              <Button variant="outline" className="print:hidden" onClick={() => window.print()}>
+                <Printer className="h-4 w-4" aria-hidden="true" /> Print
               </Button>
-            ) : undefined
+              <Button
+                variant="outline"
+                className="print:hidden"
+                disabled={exporting}
+                onClick={() => void exportXlsx()}
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+                )}
+                Excel
+              </Button>
+              {editable && (
+                <Button variant="outline" className="print:hidden" onClick={() => setSaving(true)}>
+                  <Save className="h-4 w-4" aria-hidden="true" /> Save as template
+                </Button>
+              )}
+            </>
           }
         />
       )}
 
-      <CallForwardBoard jobId={jobId} editable={editable} />
+      <Tabs defaultValue="board">
+        <TabsList className="mb-3 print:hidden">
+          <TabsTrigger value="board">
+            <Table2 className="h-3.5 w-3.5" aria-hidden="true" /> Programme
+          </TabsTrigger>
+          <TabsTrigger value="timeline">
+            <GanttChartSquare className="h-3.5 w-3.5" aria-hidden="true" /> Timeline
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="board">
+          <CallForwardBoard jobId={jobId} editable={editable} />
+        </TabsContent>
+
+        <TabsContent value="timeline">
+          <ProgrammeTimeline jobId={jobId} />
+        </TabsContent>
+      </Tabs>
 
       {editable && (templates ?? []).length > 0 && (
         <Card className="mt-6">

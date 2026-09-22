@@ -15,6 +15,8 @@ const TEST_PREFIXES = ["E2E-", "NONAME-"];
 
 /** Diary entries are recognised by a marker in their notes. */
 const DIARY_MARKERS = [
+  "Autosaved by the browser test",
+  "Autosaved first",
   "Playwright wrote this at",
   "Status test ",
   "Draft kept at ",
@@ -74,6 +76,18 @@ export default async function globalTeardown() {
         await context.delete(`/api/site-diary/${entry.id}`, { headers });
       }
     }
+    // Workers the tests added. Purged rather than deactivated, so the
+    // scheduler board does not fill up with them run after run.
+    const workers = await context.get("/api/scheduler/workers?includeInactive=true", { headers });
+    if (workers.ok()) {
+      const list = (await workers.json()) as { id: number; name: string }[];
+      for (const worker of list) {
+        if (worker.name.startsWith("E2E ")) {
+          await context.delete(`/api/scheduler/workers/${worker.id}/permanent`, { headers });
+        }
+      }
+    }
+
     // Progress readings the tests recorded.
     const progress = await context.get("/api/progress", { headers });
     if (progress.ok()) {

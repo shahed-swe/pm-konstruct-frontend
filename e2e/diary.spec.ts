@@ -53,6 +53,42 @@ test.describe("site diary", () => {
     await expect(page.getByRole("main").getByRole("alert")).toContainText("at least one note");
   });
 
+  test("the entry autosaves as it is written", async ({ page }) => {
+    const marker = `Autosaved by the browser test ${Date.now()}`;
+
+    await page.goto("/site-diary/new");
+    await chooseJob(page, "Job");
+    await page.getByLabel("General notes note 1", { exact: true }).fill(marker);
+
+    // No button pressed: it saves itself, as it does today.
+    await expect(page.getByRole("main").getByRole("status")).toHaveText("Saved");
+
+    // And it really reached the diary, not just the status line.
+    await page.goto("/site-diary");
+    await expect(page.getByRole("main").getByText(marker).first()).toBeVisible();
+  });
+
+  test("editing an autosaved note updates it rather than adding a second", async ({ page }) => {
+    const first = `Autosaved first ${Date.now()}`;
+    const second = `${first} — corrected`;
+
+    await page.goto("/site-diary/new");
+    await chooseJob(page, "Job");
+    const field = page.getByLabel("General notes note 1", { exact: true });
+    await field.fill(first);
+    await expect(page.getByRole("main").getByRole("status")).toHaveText("Saved");
+
+    await field.fill(second);
+    await expect(page.getByRole("main").getByRole("status")).toHaveText("Saved");
+
+    await page.getByRole("button", { name: /Save entry|Done/ }).click();
+    await expect(page).toHaveURL(/\/site-diary\/\d+$/);
+
+    // One note, corrected -- not two.
+    await expect(page.getByRole("main").getByText(second)).toHaveCount(1);
+    await expect(page.getByRole("main").getByText(first, { exact: true })).toHaveCount(0);
+  });
+
   test("the draft survives leaving the page", async ({ page }) => {
     const marker = `Draft kept at ${Date.now()}`;
 

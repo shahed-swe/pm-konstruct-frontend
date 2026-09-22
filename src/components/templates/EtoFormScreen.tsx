@@ -8,11 +8,10 @@
  * here approves anything, which is the point -- the person asking for the
  * money is not the person who agrees to it.
  *
- * Once approved, the supervisor shares it from their phone: the legacy built
- * a PDF and handed it to the system share sheet, falling back to a download.
- * Here it is plain text, which every phone can share and every client can
- * read; the PDF is noted in `docs/audit/preserved-quirks.md` as not carried
- * across.
+ * Once approved, the supervisor shares it from their phone as a PDF on the
+ * company's letterhead -- it goes to a client, so it has to look like the
+ * builder sent it. The system share sheet takes it straight into WhatsApp
+ * or email; on a desktop it downloads instead.
  */
 import { CheckCircle2, Clock3, Loader2, Send, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -31,6 +30,8 @@ import {
   SelectValue,
 } from "@/components/molecules/Select";
 import { useDiaryNotes } from "@/lib/api/resources/diary";
+import { buildPdf, shareOrDownload } from "@/lib/reports/pdf";
+import { useBrandingStore } from "@/stores/branding.store";
 import { useRaiseEto } from "@/lib/api/resources/forms";
 import { useJobs } from "@/lib/api/resources/jobs";
 import { useJobLabel } from "@/lib/jobs/useJobLabel";
@@ -52,6 +53,7 @@ export function EtoFormScreen() {
   const user = useAuthStore((s) => s.user);
   const labelJob = useJobLabel();
 
+  const branding = useBrandingStore((s) => s.branding);
   const { data: jobs } = useJobs();
   const raise = useRaiseEto();
 
@@ -108,29 +110,40 @@ export function EtoFormScreen() {
     );
   }
 
-  function share() {
-    if (raised === null) return;
-    const text = [
-      "ETO — EXTRA TO ORDER",
-      `Purchase order: ${raised.poNumber}`,
-      `Job: ${raised.jobLabel}`,
-      `Raised by: ${raised.raisedBy}`,
-      "",
-      `Reason: ${raised.reason}`,
-      "",
-      raised.details,
-    ].join("\n");
+  const [sharing, setSharing] = useState(false);
 
-    if (typeof navigator.share === "function") {
-      void navigator.share({ title: `ETO ${raised.poNumber}`, text }).catch(() => undefined);
-      return;
+  async function share() {
+    if (raised === null) return;
+    setSharing(true);
+    try {
+      const file = await buildPdf({
+        title: `ETO ${raised.poNumber}`,
+        subtitle: "Extra to order",
+        branding: {
+          companyName: branding.companyName,
+          primaryColor: branding.primaryColor,
+          sidebarColor: branding.sidebarColor,
+          logoUrl: branding.logoUrl,
+        },
+        badge: { label: "APPROVED", background: "#DCFCE7", text: "#166534" },
+        meta: [
+          { label: "Purchase order", value: raised.poNumber },
+          { label: "Job", value: raised.jobLabel },
+          { label: "Raised by", value: raised.raisedBy },
+        ],
+        sections: [
+          // The internal reason is deliberately absent: it is a note to the
+          // office, not something the client should read.
+          { heading: "What is required", body: raised.details },
+        ],
+        filename: `ETO-${raised.poNumber}`,
+      });
+      await shareOrDownload(file);
+    } catch {
+      toast({ title: "The PDF could not be produced", variant: "destructive" });
+    } finally {
+      setSharing(false);
     }
-    void navigator.clipboard
-      .writeText(text)
-      .then(() => toast({ title: "Copied to the clipboard", variant: "success" }))
-      .catch(() =>
-        toast({ title: "Could not share it", description: "Copy it from the screen." }),
-      );
   }
 
   return (
@@ -177,8 +190,13 @@ export function EtoFormScreen() {
               </dl>
 
               {approved && (
-                <Button onClick={share}>
-                  <Share2 className="h-4 w-4" aria-hidden="true" /> Share it
+                <Button onClick={() => void share()} disabled={sharing}>
+                  {sharing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Share2 className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  Share it
                 </Button>
               )}
             </CardContent>

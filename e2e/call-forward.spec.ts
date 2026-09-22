@@ -84,3 +84,48 @@ test.describe("call forward", () => {
     await expect(page.getByText("Only a stage can contain other items")).toBeVisible();
   });
 });
+
+test.describe("call forward: dragging", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page);
+  });
+
+  test("a row can be dragged to reorder, as it always could", async ({ page }) => {
+    const first = `E2E drag ${Date.now()}`;
+    const second = `${first} (second)`;
+
+    await page.goto("/jobs/1/call-forward");
+    await page.getByLabel("Add an item").fill(first);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByLabel(`Title of ${first}`)).toBeVisible();
+    await page.getByLabel("Add an item").fill(second);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByLabel(`Title of ${second}`)).toBeVisible();
+
+    const titles = async () =>
+      page.getByRole("main").locator("input[aria-label^='Title of']").evaluateAll((els) =>
+        (els as HTMLInputElement[]).map((el) => el.value),
+      );
+
+    const before = await titles();
+    expect(before.indexOf(first)).toBeLessThan(before.indexOf(second));
+
+    // The grip, not the row: the row is full of inputs.
+    const handle = page.getByLabel(`Drag ${second} to reorder`);
+    const target = page.getByLabel(`Drag ${first} to reorder`);
+    await handle.hover();
+    await page.mouse.down();
+    // Two moves: dnd-kit needs a move past its 6px threshold before it
+    // starts, and a second one to register the position.
+    await target.hover();
+    await target.hover();
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const after = await titles();
+        return after.indexOf(second) < after.indexOf(first);
+      })
+      .toBe(true);
+  });
+});

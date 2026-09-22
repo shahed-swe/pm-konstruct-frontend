@@ -11,7 +11,7 @@
  * Photos attach to an item, not to the form, because "the crack in the
  * ensuite" is one line with two pictures.
  */
-import { Camera, Loader2, Plus, Trash2 } from "lucide-react";
+import { Camera, FileDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/atoms/Button";
@@ -37,7 +37,10 @@ import {
 } from "@/lib/api/resources/forms";
 import { useJobs } from "@/lib/api/resources/jobs";
 import { useJobLabel } from "@/lib/jobs/useJobLabel";
+import { buildPdf, shareOrDownload } from "@/lib/reports/pdf";
+import { formatDate } from "@/lib/utils/format";
 import { useAuthStore } from "@/stores/auth.store";
+import { useBrandingStore } from "@/stores/branding.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { InspectionFormDto } from "@/lib/api/types";
 
@@ -131,6 +134,67 @@ export function InspectionFormScreen() {
   }
 
   const [uploading, setUploading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const branding = useBrandingStore((s) => s.branding);
+
+  /**
+   * The inspection as a PDF, on the company's letterhead.
+   *
+   * Sent to the client or the certifier, so it carries only what was found
+   * -- the photos live in the diary entry it files itself into, because a
+   * PDF with forty site photos in it is not something anyone can email.
+   */
+  async function exportPdf() {
+    if (form === null) return;
+    setExporting(true);
+    try {
+      const job = (jobs ?? []).find((j) => j.id === form.jobId);
+      const file = await buildPdf({
+        title: `Site inspection — ${formatDate(form.inspectionDate)}`,
+        subtitle: "Site inspection",
+        branding: {
+          companyName: branding.companyName,
+          primaryColor: branding.primaryColor,
+          sidebarColor: branding.sidebarColor,
+          logoUrl: branding.logoUrl,
+        },
+        meta: [
+          {
+            label: "Job",
+            value:
+              job === undefined
+                ? `Job #${form.jobId}`
+                : labelJob({
+                    jobNumber: job.jobNumber,
+                    jobName: job.name,
+                    jobAddress: job.address,
+                  }),
+          },
+          { label: "Inspector", value: inspector },
+          { label: "Type", value: inspectionType },
+          ...(stage.trim() === "" ? [] : [{ label: "Stage", value: stage }]),
+        ],
+        sections: [
+          ...(observations.trim() === ""
+            ? []
+            : [{ heading: "General observations", body: observations }]),
+          {
+            heading: "Defects and actions",
+            columns: ["Room", "What was found", "Actioned"],
+            rows: items
+              .filter((i) => i.room.trim() !== "" || i.description.trim() !== "")
+              .map((i) => [i.room, i.description, i.actioned ? "Yes" : "No"]),
+          },
+        ],
+        filename: `site-inspection-${form.inspectionDate}`,
+      });
+      await shareOrDownload(file);
+    } catch {
+      toast({ title: "The PDF could not be produced", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   /**
    * Photos are uploaded after the save, not before.
@@ -432,6 +496,18 @@ export function InspectionFormScreen() {
             </section>
 
             <div className="flex justify-end gap-2 pb-10">
+              <Button
+                variant="outline"
+                onClick={() => void exportPdf()}
+                disabled={exporting}
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileDown className="h-4 w-4" aria-hidden="true" />
+                )}
+                PDF
+              </Button>
               <Button onClick={submit} disabled={save.isPending || uploading}>
                 {(save.isPending || uploading) && (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

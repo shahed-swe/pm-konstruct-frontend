@@ -91,6 +91,50 @@
   }
 }
 
+/*
+ * Printing.
+ *
+ * Reports and the trade scheduler are printed and taken to site meetings,
+ * so the chrome has to go and the content has to fit. `print:hidden` on an
+ * element removes it; everything below is what the pages share.
+ */
+@media print {
+  /* The shell: navigation, header, toasts, dialogs. */
+  aside,
+  header,
+  [role="region"][aria-label*="Notification"],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  /* Ink. A dark sidebar colour printed as a solid block wastes a cartridge. */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Tables are what these pages are, and a row split across a page break is
+     unreadable. */
+  tr,
+  li,
+  .avoid-break {
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  a {
+    text-decoration: none !important;
+    color: #000 !important;
+  }
+}
+
 @layer utilities {
   /*
    * A control tints on hover instead of changing colour.

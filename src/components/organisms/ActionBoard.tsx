@@ -7,10 +7,11 @@
  * them. This is the screen managers actually live on, so it is the first
  * thing on the dashboard.
  *
- * **Moved by buttons rather than by dragging.** The current app uses HTML5
- * drag and drop, which does nothing on a touch screen and cannot be reached
- * by keyboard. The card carries the same three buttons the diary does, which
- * work everywhere.
+ * Cards are dragged between columns, as they are today. The library is
+ * `@dnd-kit` rather than the HTML5 drag API the legacy used, because that
+ * one does nothing at all on a touch screen -- and this is a board people
+ * use on a phone. The three buttons on each card stay, since a small drag
+ * target in a moving vehicle is not a fair ask.
  */
 import { CheckCircle2, Clock, MessageSquare, Zap } from "lucide-react";
 import Link from "next/link";
@@ -18,10 +19,11 @@ import { useMemo } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Skeleton } from "@/components/atoms/Skeleton";
 import { Card, CardContent } from "@/components/molecules/Card";
+import { DragBoard, DragCard, DropColumn } from "@/components/molecules/DragBoard";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { ActionStatusButtons, type ActionStatus } from "@/components/molecules/ActionStatusButtons";
 import { useActionItems } from "@/lib/api/resources/dashboard";
-import { useSetNoteActionStatus } from "@/lib/api/resources/diary";
+import { useMoveActionItem, useSetNoteActionStatus } from "@/lib/api/resources/diary";
 import { categoryLabel } from "@/lib/diary/categories";
 import { useJobLabel } from "@/lib/jobs/useJobLabel";
 import { formatDate } from "@/lib/utils/format";
@@ -119,6 +121,8 @@ function ActionCard({ item }: { item: ActionItemDto }) {
 
 export function ActionBoard() {
   const { data: items, isLoading } = useActionItems();
+  const toast = useUiStore((s) => s.toast);
+  const moveNote = useMoveActionItem();
 
   const byColumn = useMemo(() => {
     const out = new Map<string, ActionItemDto[]>();
@@ -148,16 +152,27 @@ export function ActionBoard() {
     );
   }
 
+  function move(cardId: string, columnId: string) {
+    const item = (items ?? []).find((i) => String(i.noteId) === cardId);
+    if (item === undefined || item.actionStatus === columnId) return;
+    moveNote.mutate(
+      { entryId: item.diaryEntryId, noteId: item.noteId, actionStatus: columnId },
+      { onError: () => toast({ title: "That move was not saved", variant: "destructive" }) },
+    );
+  }
+
   return (
+    <DragBoard onMove={move}>
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       {COLUMNS.map((column) => {
         const list = byColumn.get(column.key) ?? [];
         return (
-          <section
+          <DropColumn
             key={column.key}
-            aria-labelledby={`column-${column.key}`}
+            id={column.key}
             className={`rounded-xl border p-3 ${column.tone}`}
           >
+          <section aria-labelledby={`column-${column.key}`}>
             <h3
               id={`column-${column.key}`}
               className="mb-3 flex items-center gap-2 text-sm font-semibold"
@@ -175,14 +190,18 @@ export function ActionBoard() {
               <ul className="max-h-[32rem] overflow-y-auto">
                 {list.map((item) => (
                   <li key={item.noteId}>
-                    <ActionCard item={item} />
+                    <DragCard id={String(item.noteId)}>
+                      <ActionCard item={item} />
+                    </DragCard>
                   </li>
                 ))}
               </ul>
             )}
           </section>
+          </DropColumn>
         );
       })}
     </div>
+    </DragBoard>
   );
 }

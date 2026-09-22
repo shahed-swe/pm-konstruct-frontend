@@ -3,18 +3,43 @@
 /**
  * The reports.
  *
- * Seven views over the same rows the rest of the product writes, sharing one
- * filter bar and one table. The legacy had a copy of both on every report
- * and they had drifted: two offered a supervisor filter and the others did
- * not, and one defaulted its range to a month.
+ * Eleven views over the same rows the rest of the product writes, sharing
+ * one filter bar and one table. The legacy had a copy of both on every
+ * report and they had drifted: two offered a supervisor filter and the
+ * others did not, and one defaulted its range to a month.
+ *
+ * The tab lives in the query string, as it did before, so a link to one
+ * report opens on that report.
  */
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { PageHeader } from "@/components/molecules/PageHeader";
+import { Skeleton } from "@/components/atoms/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/molecules/Tabs";
 import { DelayBadge } from "@/components/molecules/DelayBadge";
+import { Input } from "@/components/atoms/Input";
+import { Field } from "@/components/molecules/Field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/molecules/Select";
+import { DashboardCalendar } from "@/components/organisms/DashboardCalendar";
+import { GanttChart } from "@/components/organisms/GanttChart";
+import {
+  DelaySeverityChart,
+  JobHealthChart,
+  SupervisorScoreChart,
+} from "@/components/organisms/ReportCharts";
 import { ReportFilterBar } from "@/components/organisms/ReportFilters";
 import { ReportTable, type Column } from "@/components/organisms/ReportTable";
+import { useCalendar } from "@/lib/api/resources/dashboard";
+import { useReportMeta, useSupervisorPerformance, useDailyProgressReport } from "@/lib/api/resources/reports";
+import { useAuthStore } from "@/stores/auth.store";
+import { today } from "@/lib/utils/format";
 import {
   useDelaysReport,
   useDiarySummaryReport,
@@ -27,6 +52,7 @@ import {
 } from "@/lib/api/resources/reports";
 import { formatDate } from "@/lib/utils/format";
 import type {
+  SupervisorPerformanceDto,
   DelayDto,
   DiaryReportDto,
   InspectionDto,
@@ -56,8 +82,165 @@ const SEVERITY_STYLE: Record<string, string> = {
   minor: "border-border bg-muted text-muted-foreground",
 };
 
+/** The schedule tab spans everything rather than one month. */
+function ScheduleTab({ filters }: { filters: ReportFilters }) {
+  const { data, isLoading } = useCalendar({
+    gantt: true,
+    ...(filters.jobId === undefined ? {} : { jobId: filters.jobId }),
+    ...(filters.supervisorId === undefined ? {} : { supervisorId: filters.supervisorId }),
+  });
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <GanttChart events={data} isLoading={isLoading} />
+    </div>
+  );
+}
+
+/** One job on one day: the programme against what the diary recorded. */
+function DailyProgressTab({ filters }: { filters: ReportFilters }) {
+  const { data: meta } = useReportMeta();
+  const [jobId, setJobId] = useState<string>(
+    filters.jobId === undefined ? "" : String(filters.jobId),
+  );
+  const [date, setDate] = useState(today());
+
+  const chosen = jobId === "" ? undefined : Number.parseInt(jobId, 10);
+  const { data, isLoading } = useDailyProgressReport(chosen, date);
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border bg-card p-3">
+        <Field label="Job" required className="min-w-52 flex-1">
+          {(props) => (
+            <Select value={jobId} onValueChange={setJobId}>
+              <SelectTrigger id={props.id}>
+                <SelectValue placeholder="Select a job…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(meta?.jobs ?? []).map((job) => (
+                  <SelectItem key={job.id} value={String(job.id)}>
+                    {job.jobNumber} — {job.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
+        <Field label="Date" required className="w-44">
+          {(props) => (
+            <Input {...props} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          )}
+        </Field>
+      </div>
+
+      {chosen === undefined ? (
+        <p className="text-sm text-muted-foreground">Choose a job and a day.</p>
+      ) : isLoading ? (
+        <Skeleton className="h-48 rounded-xl" />
+      ) : data === undefined ? (
+        <p className="text-sm text-muted-foreground">Nothing recorded for that day.</p>
+      ) : (
+        <div className="space-y-4">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-lg border bg-card p-3">
+              <dt className="text-xs text-muted-foreground">Complete</dt>
+              <dd className="text-lg font-semibold">{data.completionPct}%</dd>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <dt className="text-xs text-muted-foreground">Delayed items</dt>
+              <dd className="text-lg font-semibold">{data.delayedTasks}</dd>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <dt className="text-xs text-muted-foreground">Days behind</dt>
+              <dd className="text-lg font-semibold">{data.daysBehindProgram}</dd>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <dt className="text-xs text-muted-foreground">Planned that day</dt>
+              <dd className="text-lg font-semibold">{data.plannedToday.length}</dd>
+            </div>
+          </dl>
+
+          <div className="rounded-xl border bg-card p-4">
+            <h3 className="mb-2 text-sm font-semibold">The diary for that day</h3>
+            {data.diary === null ? (
+              <p className="text-sm text-muted-foreground">
+                No diary entry was written — which is itself worth knowing.
+              </p>
+            ) : (
+              <dl className="space-y-2 text-sm">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Work completed</dt>
+                  <dd className="whitespace-pre-wrap">{data.diary.workCompleted}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Issues</dt>
+                  <dd className="whitespace-pre-wrap">{data.diary.issues}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Trades on site</dt>
+                  <dd className="whitespace-pre-wrap">{data.diary.tradesOnSite}</dd>
+                </div>
+              </dl>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The supervisor table, repeated here as a tab exactly as it was. */
+function SupervisorTab({ filters }: { filters: ReportFilters }) {
+  const { data, isLoading } = useSupervisorPerformance(filters);
+
+  const columns: Column<SupervisorPerformanceDto>[] = [
+    { header: "Supervisor", cell: (r) => r.name },
+    { header: "Active jobs", cell: (r) => r.activeJobs },
+    {
+      header: "Started on time",
+      cell: (r) => (r.onTimeStartRate === null ? "—" : `${Math.round(r.onTimeStartRate * 100)}%`),
+      value: (r) => r.onTimeStartRate,
+    },
+    {
+      header: "Finished on time",
+      cell: (r) =>
+        r.onTimeCompletionRate === null ? "—" : `${Math.round(r.onTimeCompletionRate * 100)}%`,
+      value: (r) => r.onTimeCompletionRate,
+    },
+    { header: "Delayed items", cell: (r) => r.delayedTaskCount },
+    {
+      header: "Diary kept",
+      cell: (r) =>
+        r.diaryComplianceRate === null ? "—" : `${Math.round(r.diaryComplianceRate * 100)}%`,
+      value: (r) => r.diaryComplianceRate,
+    },
+    { header: "Score", cell: (r) => r.performanceScore },
+  ];
+
+  return (
+    <>
+      <SupervisorScoreChart rows={data ?? []} />
+      <ReportTable
+        rows={data}
+        columns={columns}
+        isLoading={isLoading}
+        caption="Supervisor performance"
+        filename="supervisor-performance"
+        rowKey={(r) => r.supervisorId}
+        emptyTitle="No supervisors to compare"
+      />
+    </>
+  );
+}
+
 export function ReportsScreen() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const isManager = useAuthStore((s) => s.user?.role === "MANAGER");
   const [filters, setFilters] = useState<ReportFilters>({});
+
+  const tab = params.get("tab") ?? "progress";
+  const setTab = (next: string) => router.replace(`/reports?tab=${next}`);
 
   const progress = useJobProgressReport(filters);
   const delays = useDelaysReport(filters);
@@ -200,18 +383,41 @@ export function ReportsScreen() {
 
       <ReportFilterBar filters={filters} onChange={setFilters} />
 
-      <Tabs defaultValue="progress">
-        <TabsList className="mb-4 flex h-auto flex-wrap justify-start">
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="mb-4 flex h-auto flex-wrap justify-start print:hidden">
           <TabsTrigger value="progress">Job progress</TabsTrigger>
+          {isManager && <TabsTrigger value="supervisor">Supervisor</TabsTrigger>}
           <TabsTrigger value="delays">Delays</TabsTrigger>
           <TabsTrigger value="diary">Site diary</TabsTrigger>
           <TabsTrigger value="upcoming">What is coming up</TabsTrigger>
+          <TabsTrigger value="daily">Daily progress</TabsTrigger>
+          <TabsTrigger value="schedule">Project schedule</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          <TabsTrigger value="weather">Weather</TabsTrigger>
           <TabsTrigger value="claims">Stage claims</TabsTrigger>
           <TabsTrigger value="inspections">Inspections</TabsTrigger>
-          <TabsTrigger value="weather">Weather</TabsTrigger>
         </TabsList>
 
+        {isManager && (
+          <TabsContent value="supervisor">
+            <SupervisorTab filters={filters} />
+          </TabsContent>
+        )}
+
+        <TabsContent value="daily">
+          <DailyProgressTab filters={filters} />
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <ScheduleTab filters={filters} />
+        </TabsContent>
+
+        <TabsContent value="calendar">
+          <DashboardCalendar />
+        </TabsContent>
+
         <TabsContent value="progress">
+          <JobHealthChart rows={progress.data ?? []} />
           <ReportTable
             rows={progress.data}
             columns={progressColumns}
@@ -224,6 +430,7 @@ export function ReportsScreen() {
         </TabsContent>
 
         <TabsContent value="delays">
+          <DelaySeverityChart rows={delays.data ?? []} />
           <ReportTable
             rows={delays.data}
             columns={delayColumns}

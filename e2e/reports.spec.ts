@@ -15,13 +15,57 @@ test.describe("reports", () => {
   test("each report is its own tab, and they load", async ({ page }) => {
     await page.goto("/reports");
 
-    for (const name of ["Delays", "Site diary", "Stage claims", "Weather"]) {
+    for (const name of ["Delays", "Site diary", "Stage claims", "Weather", "Supervisor"]) {
       await page.getByRole("tab", { name }).click();
       // Either rows or an empty state, but never a stuck skeleton.
       await expect(
         page.getByRole("main").getByText(/row|rows|Nothing|No /).first(),
       ).toBeVisible();
     }
+  });
+
+  test("the open tab is in the URL, so a link opens on it", async ({ page }) => {
+    await page.goto("/reports");
+    await page.getByRole("tab", { name: "Delays" }).click();
+    await expect(page).toHaveURL(/tab=delays/);
+
+    await page.goto("/reports?tab=weather");
+    await expect(page.getByRole("tab", { name: "Weather" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+  });
+
+  test("the project schedule and calendar tabs draw", async ({ page }) => {
+    await page.goto("/reports?tab=schedule");
+    await expect(
+      page.getByRole("main").getByText(/Planned|Nothing to chart/).first(),
+    ).toBeVisible();
+
+    await page.goto("/reports?tab=calendar");
+    await expect(page.getByRole("button", { name: "Next month" })).toBeVisible();
+  });
+
+  test("daily progress asks for a job and a day", async ({ page }) => {
+    await page.goto("/reports?tab=daily");
+    await expect(page.getByText("Choose a job and a day")).toBeVisible();
+
+    // Two "Job" pickers on this tab: the shared filter bar's and the
+    // report's own. The second one is the one that drives it.
+    await page.getByLabel("Job", { exact: true }).nth(1).click();
+    await page.getByRole("option", { name: /BSC-2024-001/ }).click();
+    // Either figures or an honest "nothing recorded", never a stuck state.
+    await expect(
+      page.getByRole("main").getByText(/Complete|Nothing recorded/).first(),
+    ).toBeVisible();
+  });
+
+  test("a report can be downloaded as an Excel file too", async ({ page }) => {
+    await page.goto("/reports");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Excel" }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe("job-progress.xlsx");
   });
 
   test("filtering by job narrows every report", async ({ page }) => {
@@ -37,10 +81,10 @@ test.describe("reports", () => {
 
   test("a report can be downloaded as a CSV", async ({ page }) => {
     await page.goto("/reports");
-    await expect(page.getByRole("button", { name: "Download CSV" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "CSV" })).toBeVisible();
 
     const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Download CSV" }).click();
+    await page.getByRole("button", { name: "CSV" }).click();
     const file = await download;
     expect(file.suggestedFilename()).toBe("job-progress.csv");
   });

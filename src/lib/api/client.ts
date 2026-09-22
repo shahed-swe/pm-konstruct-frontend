@@ -148,6 +148,24 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return (await response.json()) as T;
 }
 
+/**
+ * Fetches a binary body -- an image, a PDF -- rather than JSON.
+ *
+ * Separate from `request` because that one parses the body as JSON, and the
+ * refresh-and-retry is still wanted: a logo fetched for a PDF export half an
+ * hour into a session hits exactly the same expiry as anything else.
+ */
+export async function requestBlob(path: string): Promise<Blob> {
+  const fetchOnce = () => fetch(`${BASE}${path}`, { credentials: "same-origin" });
+
+  let response = await fetchOnce();
+  if (response.status === 401 && (await refreshSession())) {
+    response = await fetchOnce();
+  }
+  if (!response.ok) throw await parseError(response);
+  return response.blob();
+}
+
 export const api = {
   get: <T>(path: string, signal?: AbortSignal) =>
     request<T>(path, signal ? { signal } : {}),
@@ -155,4 +173,5 @@ export const api = {
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string, body?: unknown) => request<T>(path, { method: "DELETE", body }),
+  blob: (path: string) => requestBlob(path),
 };

@@ -7,10 +7,20 @@
  * chronological and filtered by job. The action flags on the left edge are
  * what a manager scans for: red means somebody needs to do something.
  */
-import { AlertTriangle, BookOpen, CloudSun, Filter, Plus, ShieldAlert, User } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  Columns3,
+  CloudSun,
+  Filter,
+  LayoutList,
+  Plus,
+  ShieldAlert,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Skeleton } from "@/components/atoms/Skeleton";
@@ -25,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/molecules/Select";
 import { actionStatusLabel, type ActionStatus } from "@/components/molecules/ActionStatusButtons";
+import { ActionBoard } from "@/components/organisms/ActionBoard";
 import { useDiaryEntries } from "@/lib/api/resources/diary";
 import { useJobs } from "@/lib/api/resources/jobs";
 import { useJobLabel } from "@/lib/jobs/useJobLabel";
@@ -33,6 +44,8 @@ import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/stores/auth.store";
 import type { DiaryEntryDto } from "@/lib/api/types";
+
+const VIEW_KEY = "pmk.diaryView";
 
 const STATUS_EDGE: Record<string, string> = {
   action: "border-l-4 border-l-red-500",
@@ -81,6 +94,26 @@ export function DiaryListScreen() {
   const permissions = useAuthStore((s) => s.permissions);
   const mayCreate = canEdit(user, permissions, "site-diary");
   const labelJob = useJobLabel();
+
+  // Which view the user last chose, kept per browser as the legacy did.
+  const [view, setView] = useState<"list" | "board">("list");
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(VIEW_KEY);
+      if (stored === "board" || stored === "list") setView(stored);
+    } catch {
+      // Private browsing. The list is the sensible default.
+    }
+  }, []);
+
+  function chooseView(next: "list" | "board") {
+    setView(next);
+    try {
+      window.localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Nothing to do; it lasts for this session.
+    }
+  }
 
   const { data: jobs } = useJobs();
   const { data: entries, isLoading } = useDiaryEntries(
@@ -143,9 +176,29 @@ export function DiaryListScreen() {
             Clear
           </Button>
         )}
+
+        <div className="flex-1" />
+
+        <Button
+          variant={view === "board" ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => chooseView(view === "list" ? "board" : "list")}
+        >
+          {view === "list" ? (
+            <>
+              <Columns3 className="h-3.5 w-3.5" aria-hidden="true" /> Board
+            </>
+          ) : (
+            <>
+              <LayoutList className="h-3.5 w-3.5" aria-hidden="true" /> List
+            </>
+          )}
+        </Button>
       </div>
 
-      {isLoading ? (
+      {view === "board" ? (
+        <ActionBoard />
+      ) : isLoading ? (
         <div className="space-y-3" aria-busy="true">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-32 rounded-xl" />

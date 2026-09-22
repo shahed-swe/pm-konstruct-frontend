@@ -12,7 +12,7 @@
  * often have the same entry open: the supervisor writing it and the manager
  * marking things done.
  */
-import { AlertTriangle, Mail, ShieldAlert, Trash2 } from "lucide-react";
+import { AlertTriangle, FileDown, Loader2, Mail, Printer, ShieldAlert, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/atoms/Badge";
@@ -40,7 +40,9 @@ import { useMedia } from "@/lib/api/resources/media";
 import { canEdit } from "@/lib/auth/permissions";
 import { useJobLabel } from "@/lib/jobs/useJobLabel";
 import { formatDate } from "@/lib/utils/format";
+import { buildPdf, shareOrDownload } from "@/lib/reports/pdf";
 import { useAuthStore } from "@/stores/auth.store";
+import { useBrandingStore } from "@/stores/branding.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { DiaryEntryDto } from "@/lib/api/types";
 
@@ -133,8 +135,10 @@ export function DiaryDetailScreen({ entryId }: { entryId: number }) {
   const setStatus = useSetEntryActionStatus(entryId);
   const remove = useDeleteDiaryEntry();
 
+  const branding = useBrandingStore((s) => s.branding);
   const [deleting, setDeleting] = useState(false);
   const [emailing, setEmailing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [highlightNoteId, setHighlightNoteId] = useState<number | null>(null);
 
   // The dashboard and the diary list send people here pointed at one note.
@@ -231,7 +235,78 @@ export function DiaryDetailScreen({ entryId }: { entryId: number }) {
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Print
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            onClick={() => {
+              setExporting(true);
+              void (async () => {
+                try {
+                  const jobLabel =
+                    labelJob({
+                      jobNumber: entry.jobNumber,
+                      jobName: entry.jobName,
+                      jobAddress: entry.jobAddress,
+                    }) || `Job #${entry.jobId}`;
+
+                  const file = await buildPdf({
+                    title: `Site diary — ${formatDate(entry.date)}`,
+                    subtitle: "Site diary",
+                    branding: {
+                      companyName: branding.companyName,
+                      primaryColor: branding.primaryColor,
+                      sidebarColor: branding.sidebarColor,
+                      logoUrl: branding.logoUrl,
+                    },
+                    meta: [
+                      { label: "Job", value: jobLabel },
+                      { label: "Date", value: formatDate(entry.date) },
+                      { label: "Written by", value: entry.authorName ?? "—" },
+                      ...(entry.workforce === null
+                        ? []
+                        : [{ label: "Workforce", value: String(entry.workforce) }]),
+                    ],
+                    sections: [
+                      ...(entry.workCompleted.trim() === ""
+                        ? []
+                        : [{ heading: "Work completed", body: entry.workCompleted }]),
+                      ...(visibleNotes.length === 0
+                        ? []
+                        : [
+                            {
+                              heading: "Notes",
+                              columns: ["Category", "Note", "Status"],
+                              rows: visibleNotes.map((note) => [
+                                note.category,
+                                note.content,
+                                note.actionStatus ?? "—",
+                              ]),
+                            },
+                          ]),
+                    ],
+                    filename: `site-diary-${entry.date}`,
+                  });
+                  await shareOrDownload(file);
+                } catch {
+                  toast({ title: "The PDF could not be produced", variant: "destructive" });
+                } finally {
+                  setExporting(false);
+                }
+              })();
+            }}
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <FileDown className="h-4 w-4" />
+            )}
+            PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEmailing(true)}>
             <Mail className="h-4 w-4" /> Email
           </Button>

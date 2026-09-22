@@ -149,6 +149,15 @@ export function createDiaryNote(entryId: number, body: DiaryNoteRequest): Promis
   return api.post<DiaryNoteDto>(`/site-diary/${entryId}/notes`, body);
 }
 
+/** Updates a note outside a hook, for the same reason as `createDiaryNote`. */
+export function updateDiaryNote(
+  entryId: number,
+  noteId: number,
+  body: Partial<DiaryNoteRequest>,
+): Promise<DiaryNoteDto> {
+  return api.patch<DiaryNoteDto>(`/site-diary/${entryId}/notes/${noteId}`, body);
+}
+
 export function useAddDiaryNote(entryId: number) {
   const client = useQueryClient();
   return useMutation({
@@ -174,6 +183,35 @@ export function useDeleteDiaryNote(entryId: number) {
   return useMutation({
     mutationFn: (noteId: number) => api.delete<void>(`/site-diary/${entryId}/notes/${noteId}`),
     onSuccess: () => invalidateNotes(client, entryId),
+  });
+}
+
+/**
+ * Moves a note between the action board's columns.
+ *
+ * Takes the entry id with it, because a note is addressed through its entry
+ * -- which is what carries the tenant check -- and the board shows notes
+ * from every entry at once.
+ */
+export function useMoveActionItem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      entryId,
+      noteId,
+      actionStatus,
+    }: {
+      entryId: number;
+      noteId: number;
+      actionStatus: string | null;
+    }) =>
+      api.patch<DiaryNoteDto>(`/site-diary/${entryId}/notes/${noteId}/action-status`, {
+        actionStatus,
+      }),
+    onSuccess: (_note, variables) => {
+      void client.invalidateQueries({ queryKey: keys.diary.notes(variables.entryId) });
+      void client.invalidateQueries({ queryKey: keys.dashboard.all });
+    },
   });
 }
 

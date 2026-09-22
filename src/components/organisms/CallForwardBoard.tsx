@@ -7,11 +7,11 @@
  * the status -- because the whole point of this screen is a supervisor
  * updating a date while standing on the site.
  *
- * **Reordering is by buttons rather than by dragging.** The current app uses
- * HTML5 drag and drop, which does not work on a touch screen at all, and is
- * unreachable by keyboard. Move up, move down, indent and outdent do the
- * same job, work everywhere, and can be announced. Recorded in
- * `docs/audit/preserved-quirks.md`.
+ * Rows are dragged to reorder, as they are today -- with `@dnd-kit` rather
+ * than the HTML5 drag API the legacy used, because that one does nothing on
+ * a touch screen and this programme is edited on site. The move, indent and
+ * outdent buttons stay alongside: they work by keyboard, and a precise drag
+ * target is not a fair ask on a phone in the rain.
  */
 import {
   ChevronDown,
@@ -19,9 +19,25 @@ import {
   ChevronUp,
   CornerDownRight,
   CornerLeftUp,
+  GripVertical,
   Plus,
   Trash2,
 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
@@ -66,6 +82,43 @@ const ITEM_TYPES = [
 /** Only a stage may contain anything, which the API enforces too. */
 function canHaveChildren(item: CallForwardDto): boolean {
   return item.itemType === "HEADER";
+}
+
+/**
+ * One row, draggable by its handle.
+ *
+ * The handle is the grip rather than the whole row: the row is full of
+ * inputs, and a drag that starts on a date field is a date field nobody can
+ * focus.
+ */
+function SortableRow({
+  id,
+  children,
+  className,
+  style,
+}: {
+  id: number;
+  children: (handle: Record<string, unknown>) => React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+
+  return (
+    <li
+      ref={setNodeRef}
+      className={cn(className, isDragging && "opacity-60")}
+      style={{
+        ...style,
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      {children({ ...attributes, ...listeners })}
+    </li>
+  );
 }
 
 function Cell({
@@ -131,6 +184,12 @@ export function CallForwardBoard({ jobId, editable }: { jobId: number; editable:
   const [newTitle, setNewTitle] = useState("");
   const [newType, setNewType] = useState<string>("TASK");
 
+  const sensors = useSensors(
+    // 6px before a drag begins, so a tap on a field in the row still lands.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+
   const tree = useMemo(() => buildTree(items ?? []), [items]);
   const rows = useMemo(() => {
     const hidden = new Set<number>();
@@ -143,6 +202,48 @@ export function CallForwardBoard({ jobId, editable }: { jobId: number; editable:
     walk(tree, false);
     return flattenTree(tree).filter((n) => !hidden.has(n.id));
   }, [tree, collapsed]);
+
+  /**
+   * Reorders within the dragged row's own siblings.
+   *
+   * Dropping onto a row with a different parent is ignored rather than
+   * silently re-parenting: a drag that quietly moves a trade into a
+   * different stage is the kind of thing nobody notices until the programme
+   * is wrong. Use indent and outdent to change the parent deliberately.
+   */
+  function handleDragEnd(event: DragEndEvent) {
+    const activeId = Number(event.active.id);
+    const overId = event.over === null ? null : Number(event.over.id);
+    if (overId === null || activeId === overId) return;
+
+    const all = flattenTree(tree);
+    const moved = all.find((n) => n.id === activeId);
+    const target = all.find((n) => n.id === overId);
+    if (moved === undefined || target === undefined) return;
+
+    if (moved.parentId !== target.parentId) {
+      toast({
+        title: "Dropped outside its stage",
+        description: "Use the indent and outdent buttons to move an item between stages.",
+      });
+      return;
+    }
+
+    const siblings = siblingsOf(moved);
+    const from = siblings.findIndex((n) => n.id === activeId);
+    const to = siblings.findIndex((n) => n.id === overId);
+    if (from < 0 || to < 0) return;
+
+    const reordered = [...siblings];
+    const [taken] = reordered.splice(from, 1);
+    if (taken === undefined) return;
+    reordered.splice(to, 0, taken);
+
+    reorder.mutate(
+      reordered.map((n, i): ReorderItem => ({ id: n.id, sortOrder: i + 1 })),
+      { onError: () => toast({ title: "The order was not saved", variant: "destructive" }) },
+    );
+  }
 
   function toggle(id: number) {
     setCollapsed((prev) => {
@@ -240,20 +341,39 @@ export function CallForwardBoard({ jobId, editable }: { jobId: number; editable:
         />
       ) : (
         <div className="overflow-hidden rounded-xl border bg-card">
+          <DndContext
+            sensors={sensors}
+            modifiers={[restrictToVerticalAxis]}
+            onDragEnd={handleDragEnd}
+          >
+          <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
           <ul className="divide-y">
             {rows.map((node) => {
               const isStage = node.itemType === "HEADER";
               const hasChildren = node.children.length > 0;
 
               return (
-                <li
+                <SortableRow
                   key={node.id}
+                  id={node.id}
                   className={cn(
                     "flex flex-wrap items-center gap-2 px-3 py-2",
                     isStage && "bg-secondary/40 font-medium",
                   )}
                   style={{ paddingLeft: `${0.75 + node.depth * 1.5}rem` }}
                 >
+                  {(handle) => (
+                  <>
+                  {editable && (
+                    <button
+                      type="button"
+                      aria-label={`Drag ${node.title} to reorder`}
+                      className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                      {...handle}
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </button>
+                  )}
                   {hasChildren ? (
                     <Button
                       variant="ghost"
@@ -398,10 +518,14 @@ export function CallForwardBoard({ jobId, editable }: { jobId: number; editable:
                       </Button>
                     </div>
                   )}
-                </li>
+                  </>
+                  )}
+                </SortableRow>
               );
             })}
           </ul>
+          </SortableContext>
+          </DndContext>
         </div>
       )}
 

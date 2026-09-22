@@ -7,19 +7,23 @@
  * notes and their photos are written in that order, because a note needs an
  * entry and a photo needs a note.
  *
- * **A deliberate change from the current app.** That one created the entry
- * on the server the moment you typed a character and autosaved every note as
- * you went, which meant a form abandoned half way left an empty diary entry
- * behind forever -- and the diary is a legal record of what happened on
- * site. Here the draft is kept in the browser, so nothing is lost if the
- * phone dies, and nothing reaches the diary until the supervisor says so.
- * Recorded in `docs/audit/deliberate-changes.md`.
+ * It autosaves, as the current app does: a supervisor typing one-handed in
+ * a ute should not have to find a button, and the connection on a site is
+ * not something to trust for one big save at the end. The entry itself is
+ * created on the server the first time there is something to put in it, and
+ * each note follows as it is written.
+ *
+ * Two guards that look fussy and are not. Saves can land out of order on a
+ * bad connection, so each carries a sequence number and a late reply from an
+ * older save is ignored. And the entry is created once even if three notes
+ * are typed at the same moment, because the second and third wait on the
+ * first rather than each creating one.
  */
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
-import { createDiaryNote, useCreateDiaryEntry } from "@/lib/api/resources/diary";
+import { createDiaryNote, updateDiaryNote, useCreateDiaryEntry } from "@/lib/api/resources/diary";
 import { uploadMediaFiles } from "@/lib/api/resources/media";
 import { useJobs } from "@/lib/api/resources/jobs";
 import { Button } from "@/components/atoms/Button";
@@ -46,6 +50,8 @@ import { useJobLabel } from "@/lib/jobs/useJobLabel";
 import { today } from "@/lib/utils/format";
 import { useAuthStore } from "@/stores/auth.store";
 import { useUiStore } from "@/stores/ui.store";
+
+const SAVE_DELAY_MS = 900;
 
 type SectionNotes = Record<SectionKey, DraftNote[]>;
 
@@ -74,12 +80,26 @@ export function DiaryNewScreen() {
   const { data: jobs } = useJobs();
   const createEntry = useCreateDiaryEntry();
 
+  const [savedEntryId, setSavedEntryId] = useState<number | null>(null);
   const [jobId, setJobId] = useState(params.get("jobId") ?? "");
   const [date, setDate] = useState(today());
   const [time, setTime] = useState("");
   const [sections, setSections] = useState<SectionNotes>(emptySections);
   const [error, setError] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+
+  /** The entry once it exists, and the promise that is creating it. */
+  const entryIdRef = useRef<number | null>(null);
+  const creatingRef = useRef<Promise<number> | null>(null);
+  /** The server id of each note we have already written, by its local id. */
+  const savedNoteIds = useRef<Record<string, number>>({});
+  /** What each note looked like when we last saved it. */
+  const savedContent = useRef<Record<string, string>>({});
+  const sequence = useRef(0);
+  const applied = useRef(0);
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
 
   // Restore an unfinished draft. Photos are not part of it -- a `File`
   // cannot be stored -- so the note text comes back and the pictures have to
@@ -126,6 +146,114 @@ export function DiaryNewScreen() {
     }
   }, [jobId, date, time, sections]);
 
+  /**
+   * The entry, created once.
+   *
+   * Three notes typed at the same moment must not create three entries, so
+   * the second and third wait on the first's promise.
+   */
+  async function ensureEntry(job: number): Promise<number> {
+    if (entryIdRef.current !== null) return entryIdRef.current;
+    if (creatingRef.current !== null) return creatingRef.current;
+
+    creatingRef.current = (async () => {
+      const entry = await createEntry.mutateAsync({
+        jobId: job,
+        date,
+        time: time === "" ? null : time,
+        // The substance is in the notes, which is how the diary has been
+        // written since notes replaced the single text box.
+        workCompleted: "",
+      });
+      entryIdRef.current = entry.id;
+      setSavedEntryId(entry.id);
+      return entry.id;
+    })();
+
+    try {
+      return await creatingRef.current;
+    } finally {
+      creatingRef.current = null;
+    }
+  }
+
+  /** Writes whatever has changed since the last save. */
+  async function autosave() {
+    if (jobId === "") return;
+
+    const pending = DIARY_SECTIONS.flatMap((section) =>
+      sectionsRef.current[section.key]
+        .filter((note) => {
+          const text = note.content.trim();
+          if (text === "") return false;
+          return savedContent.current[note.localId] !== text;
+        })
+        .map((note) => ({ section: section.key, note })),
+    );
+    if (pending.length === 0) return;
+
+    const mine = ++sequence.current;
+    setStatus("saving");
+
+    try {
+      const entry = await ensureEntry(Number.parseInt(jobId, 10));
+
+      for (const { section, note } of pending) {
+        const text = note.content.trim();
+        const existing = savedNoteIds.current[note.localId];
+
+        if (existing === undefined) {
+          const created = await createDiaryNote(entry, {
+            category: section,
+            content: text,
+            actionStatus: note.actionStatus,
+            sortOrder: null,
+          });
+          savedNoteIds.current[note.localId] = created.id;
+          if (note.files.length > 0) {
+            await uploadMediaFiles({ kind: "diary", entryId: entry }, note.files, created.id);
+            // Uploaded once; clearing them stops a second pass re-sending.
+            setSections((prev) => ({
+              ...prev,
+              [section]: prev[section].map((n) =>
+                n.localId === note.localId ? { ...n, files: [] } : n,
+              ),
+            }));
+          }
+        } else {
+          await updateDiaryNote(entry, existing, {
+            content: text,
+            actionStatus: note.actionStatus,
+          });
+        }
+
+        savedContent.current[note.localId] = text;
+      }
+
+      if (mine < applied.current) return;
+      applied.current = mine;
+      setStatus("saved");
+    } catch (cause) {
+      if (mine < applied.current) return;
+      setStatus("failed");
+      setError(
+        cause instanceof ApiError
+          ? cause.message
+          : "That did not save. Your draft is kept, so nothing is lost.",
+      );
+    }
+  }
+
+  // Debounced, so a burst of typing is one save rather than one per letter.
+  useEffect(() => {
+    if (jobId === "") return;
+    const timer = window.setTimeout(() => void autosave(), SAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+    // `autosave` reads the latest state through refs; adding it here would
+    // restart the timer on every render and the save would never fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, jobId, date, time]);
+
   async function save() {
     if (jobId === "") {
       setError("Choose the job this entry is for.");
@@ -146,31 +274,14 @@ export function DiaryNewScreen() {
     setError(undefined);
 
     try {
-      setSaving("Creating the entry…");
-      const entry = await createEntry.mutateAsync({
-        jobId: Number.parseInt(jobId, 10),
-        date,
-        time: time === "" ? null : time,
-        // The entry's own `workCompleted` stays empty: the detail of the day
-        // lives in the notes, which is how the diary has been written since
-        // the notes feature replaced the single text box.
-        workCompleted: "",
-      });
+      setSaving("Saving…");
+      // Everything not yet written goes now, through the same path the
+      // autosave uses -- so a note already saved is updated rather than
+      // duplicated.
+      await autosave();
 
-      for (const [index, { section, note }] of filled.entries()) {
-        setSaving(`Saving note ${index + 1} of ${filled.length}…`);
-        const saved = await createDiaryNote(entry.id, {
-          category: section,
-          content: note.content.trim(),
-          actionStatus: note.actionStatus,
-          sortOrder: null,
-        });
-
-        if (note.files.length > 0) {
-          setSaving(`Uploading photos for note ${index + 1}…`);
-          await uploadMediaFiles({ kind: "diary", entryId: entry.id }, note.files, saved.id);
-        }
-      }
+      const entry = entryIdRef.current;
+      if (entry === null) throw new Error("The entry was not created.");
 
       try {
         window.localStorage.removeItem(DRAFT_KEY);
@@ -179,7 +290,7 @@ export function DiaryNewScreen() {
       }
 
       toast({ title: "Diary entry saved", variant: "success" });
-      router.push(`/site-diary/${entry.id}`);
+      router.push(`/site-diary/${entry}`);
     } catch (cause) {
       setError(
         cause instanceof ApiError
@@ -256,14 +367,15 @@ export function DiaryNewScreen() {
         )}
 
         <div className="flex items-center justify-end gap-3 pb-10">
-          {saving !== null && (
-            <span role="status" aria-live="polite" className="text-sm text-muted-foreground">
-              {saving}
-            </span>
-          )}
+          <span role="status" aria-live="polite" className="text-sm text-muted-foreground">
+            {saving ?? (status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "")}
+            {status === "failed" && (
+              <span className="text-destructive">Not saved — check your connection</span>
+            )}
+          </span>
           <Button onClick={() => void save()} disabled={saving !== null}>
             {saving !== null && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            Save entry
+            {savedEntryId === null ? "Save entry" : "Done"}
           </Button>
         </div>
       </div>
