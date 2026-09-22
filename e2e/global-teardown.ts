@@ -14,7 +14,13 @@ import { request } from "@playwright/test";
 const TEST_PREFIXES = ["E2E-", "NONAME-"];
 
 /** Diary entries are recognised by a marker in their notes. */
-const DIARY_MARKERS = ["Playwright wrote this at", "Status test ", "Draft kept at "];
+const DIARY_MARKERS = [
+  "Playwright wrote this at",
+  "Status test ",
+  "Draft kept at ",
+  "Playwright raised this",
+  "Two extra piers",
+];
 
 export default async function globalTeardown() {
   const api = process.env.PMK_API_URL ?? "http://127.0.0.1:8081";
@@ -66,6 +72,16 @@ export default async function globalTeardown() {
       const isOurs = notes.some((n) => DIARY_MARKERS.some((m) => n.content.includes(m)));
       if (isOurs) {
         await context.delete(`/api/site-diary/${entry.id}`, { headers });
+      }
+    }
+    // Progress readings the tests recorded.
+    const progress = await context.get("/api/progress", { headers });
+    if (progress.ok()) {
+      const records = (await progress.json()) as { id: number; milestone: string | null }[];
+      for (const record of records) {
+        if (record.milestone?.startsWith("E2E milestone") === true) {
+          await context.delete(`/api/progress/${record.id}`, { headers });
+        }
       }
     }
   } finally {

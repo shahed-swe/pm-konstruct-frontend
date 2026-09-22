@@ -20,3 +20,19 @@ export async function signIn(page: Page, account: keyof typeof ACCOUNTS = "manag
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/dashboard");
 }
+
+/**
+ * Picks a job from a `Select` by name.
+ *
+ * Deliberately not "the first option": the tests create jobs of their own,
+ * so which job is first depends on what has run before, and a test that
+ * depends on that fails for reasons that have nothing to do with it.
+ */
+export async function chooseJob(
+  page: Page,
+  fieldLabel: string,
+  jobName = "Riverside Apartments Stage 2",
+) {
+  await page.getByLabel(fieldLabel, { exact: true }).click();
+  await page.getByRole("option", { name: jobName }).click();
+}

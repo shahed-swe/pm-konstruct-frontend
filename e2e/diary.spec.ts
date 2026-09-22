@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { chooseJob, signIn } from "./helpers";
 
 test.describe("site diary", () => {
   test.beforeEach(async ({ page }) => {
@@ -10,11 +10,14 @@ test.describe("site diary", () => {
     await page.goto("/site-diary");
     await expect(page.getByRole("heading", { name: "Site diary" })).toBeVisible();
 
-    // The joined names the API had to start sending: a card is labelled
-    // with its job, not with a bare id.
-    const firstCard = page.getByRole("main").getByRole("listitem").first();
-    await expect(firstCard).toBeVisible();
-    await expect(firstCard.getByText(/BSC-|River Rd|Riverside/).first()).toBeVisible();
+    // The joined names the API had to start sending: every card is labelled
+    // with its job, not with a bare id. Asserted across the list rather than
+    // on whichever card happens to be first, which depends on the data.
+    const cards = page.getByRole("main").getByRole("listitem");
+    await expect(cards.first()).toBeVisible();
+    await expect(
+      page.getByRole("main").getByText(/Riverside|Westfield|BSC-/).first(),
+    ).toBeVisible();
   });
 
   test("filtering by job puts the job in the URL so it can be shared", async ({ page }) => {
@@ -28,8 +31,7 @@ test.describe("site diary", () => {
     const marker = `Playwright wrote this at ${new Date().toISOString()}`;
 
     await page.goto("/site-diary/new");
-    await page.getByLabel("Job").click();
-    await page.getByRole("option").first().click();
+    await chooseJob(page, "Job");
     await page.getByLabel("General notes note 1", { exact: true }).fill(marker);
     await page.getByRole("button", { name: "Save entry" }).click();
 
@@ -45,8 +47,7 @@ test.describe("site diary", () => {
 
   test("saving with no notes says so rather than creating an empty entry", async ({ page }) => {
     await page.goto("/site-diary/new");
-    await page.getByLabel("Job").click();
-    await page.getByRole("option").first().click();
+    await chooseJob(page, "Job");
     await page.getByRole("button", { name: "Save entry" }).click();
 
     await expect(page.getByRole("main").getByRole("alert")).toContainText("at least one note");
@@ -68,8 +69,7 @@ test.describe("site diary", () => {
     const marker = `Status test ${Date.now()}`;
 
     await page.goto("/site-diary/new");
-    await page.getByLabel("Job").click();
-    await page.getByRole("option").first().click();
+    await chooseJob(page, "Job");
     await page.getByLabel("General notes note 1", { exact: true }).fill(marker);
     await page.getByRole("button", { name: "Save entry" }).click();
     await expect(page).toHaveURL(/\/site-diary\/\d+$/);

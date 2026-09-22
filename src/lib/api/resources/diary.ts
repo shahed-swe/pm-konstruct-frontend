@@ -109,7 +109,17 @@ export function useSetEntryActionStatus(id: number) {
   });
 }
 
-export function useDiaryNotes(entryId: number, includeArchived = false) {
+export function useDiaryNotes(
+  entryId: number,
+  includeArchived = false,
+  options: {
+    /**
+     * Poll while a page is waiting on somebody else to act -- the ETO form
+     * watching for a manager's approval. Off everywhere else.
+     */
+    refetchInterval?: number | false;
+  } = {},
+) {
   return useQuery({
     queryKey: [...keys.diary.notes(entryId), { includeArchived }],
     queryFn: ({ signal }) =>
@@ -117,7 +127,8 @@ export function useDiaryNotes(entryId: number, includeArchived = false) {
         `/site-diary/${entryId}/notes${includeArchived ? "?includeArchived=true" : ""}`,
         signal,
       ),
-    enabled: Number.isFinite(entryId),
+    enabled: Number.isFinite(entryId) && entryId > 0,
+    refetchInterval: options.refetchInterval ?? false,
   });
 }
 
