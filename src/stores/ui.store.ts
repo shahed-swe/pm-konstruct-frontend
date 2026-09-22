@@ -11,7 +11,7 @@ import { createPersistedStore } from "./createStore";
 export interface Toast {
   id: string;
   title: string;
-  description?: string;
+  description?: string | undefined;
   variant: "default" | "success" | "destructive";
 }
 

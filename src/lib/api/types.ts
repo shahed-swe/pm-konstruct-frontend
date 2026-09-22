@@ -98,8 +98,8 @@ export interface SetupRequest {
   name: string;
   email: string;
   password: string;
-  phone: string | null;
-  companyName: string | null;
+  phone?: string | null;
+  companyName?: string | null;
 }
 
 /**
@@ -110,7 +110,7 @@ export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
-  phone: string | null;
+  phone?: string | null;
 }
 
 export interface ForgotPasswordRequest {
@@ -222,23 +222,23 @@ export interface CallForwardDto {
 }
 
 export interface CallForwardRequest {
-  jobId: number | null;
+  jobId?: number | null;
   title: string;
-  itemType: string | null;
-  supplierTrade: string | null;
-  estStart: string | null;
-  estFinish: string | null;
-  actualStart: string | null;
-  actualFinish: string | null;
-  status: string | null;
-  notes: string | null;
-  sortOrder: number | null;
-  parentId: number | null;
+  itemType?: string | null;
+  supplierTrade?: string | null;
+  estStart?: string | null;
+  estFinish?: string | null;
+  actualStart?: string | null;
+  actualFinish?: string | null;
+  status?: string | null;
+  notes?: string | null;
+  sortOrder?: number | null;
+  parentId?: number | null;
   /**
    * Index into the same list for bulk creates, so a hierarchy can be
    * described before any ids exist.
    */
-  localParent: number | null;
+  localParent?: number | null;
 }
 
 export interface BulkCreateRequest {
@@ -262,13 +262,13 @@ export interface ReorderResponse {
 }
 
 export interface CallForwardListQuery {
-  jobId: number | null;
-  status: string | null;
-  parentId: number | null;
+  jobId?: number | null;
+  status?: string | null;
+  parentId?: number | null;
 }
 
 export interface UpcomingQuery {
-  days: number | null;
+  days?: number | null;
 }
 
 export interface TemplateItemDto {
@@ -295,13 +295,13 @@ export interface TemplateDto {
  */
 export interface CreateTemplateRequest {
   name: string;
-  description: string | null;
+  description?: string | null;
   jobId: number;
 }
 
 export interface RenameTemplateRequest {
   name: string;
-  description: string | null;
+  description?: string | null;
 }
 
 export interface ApplyTemplateRequest {
@@ -408,12 +408,12 @@ export interface ActionItemDto {
  * The calendar's query string.
  */
 export interface CalendarQueryParams {
-  month: string | null;
+  month?: string | null;
   /** The legacy parameter is `gantt`; it means "ignore the month". */
   gantt?: string | null;
-  jobId: number | null;
-  supervisorId: number | null;
-  type: string | null;
+  jobId?: number | null;
+  supervisorId?: number | null;
+  type?: string | null;
 }
 
 export interface CalendarEventDto {
@@ -480,21 +480,21 @@ export interface DiaryEntryDto extends WeatherDto {
 }
 
 export interface DiaryEntryRequest {
-  jobId: number | null;
-  date: string | null;
-  time: string | null;
-  weather: string | null;
-  workforce: number | null;
-  workCompleted: string | null;
-  materials: string | null;
-  tradesOnSite: string | null;
-  safetyNotes: string | null;
-  clientInstructions: string | null;
-  equipment: string | null;
-  visitors: string | null;
-  issues: string | null;
-  notes: string | null;
-  actionStatus: string | null;
+  jobId?: number | null;
+  date?: string | null;
+  time?: string | null;
+  weather?: string | null;
+  workforce?: number | null;
+  workCompleted?: string | null;
+  materials?: string | null;
+  tradesOnSite?: string | null;
+  safetyNotes?: string | null;
+  clientInstructions?: string | null;
+  equipment?: string | null;
+  visitors?: string | null;
+  issues?: string | null;
+  notes?: string | null;
+  actionStatus?: string | null;
 }
 
 export interface DiaryNoteDto {
@@ -510,14 +510,14 @@ export interface DiaryNoteDto {
 }
 
 export interface DiaryNoteRequest {
-  category: string | null;
+  category?: string | null;
   content: string;
-  actionStatus: string | null;
-  sortOrder: number | null;
+  actionStatus?: string | null;
+  sortOrder?: number | null;
 }
 
 export interface ActionStatusRequest {
-  actionStatus: string | null;
+  actionStatus?: string | null;
 }
 
 export interface DiaryCommentDto {
@@ -534,10 +534,10 @@ export interface CommentRequest {
 }
 
 export interface DiaryListQuery {
-  jobId: number | null;
-  from: string | null;
-  to: string | null;
-  actionStatus: string | null;
+  jobId?: number | null;
+  from?: string | null;
+  to?: string | null;
+  actionStatus?: string | null;
   includeArchived?: boolean;
 }
 
@@ -547,7 +547,7 @@ export interface DiaryListQuery {
 export interface EmailEntryRequest {
   to: string[];
   subject?: string;
-  customMessage: string | null;
+  customMessage?: string | null;
 }
 
 /**
@@ -746,19 +746,19 @@ export interface JobUpsertRequest {
   name: string;
   jobNumber: string;
   client: string;
-  clientNumber: string | null;
-  clientEmail: string | null;
+  clientNumber?: string | null;
+  clientEmail?: string | null;
   address: string;
-  status: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  managerId: number | null;
-  supervisorId: number | null;
-  dropboxPath: string | null;
-  description: string | null;
-  contact2Name: string | null;
-  contact2Phone: string | null;
-  contact2Email: string | null;
+  status?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  managerId?: number | null;
+  supervisorId?: number | null;
+  dropboxPath?: string | null;
+  description?: string | null;
+  contact2Name?: string | null;
+  contact2Phone?: string | null;
+  contact2Email?: string | null;
 }
 
 /**
@@ -776,11 +776,11 @@ export interface JobUpsertRequest {
  * -- without the distinction there is no way to erase a client email.
  */
 export interface JobPatchRequest {
-  name: string | null;
-  jobNumber: string | null;
-  client: string | null;
-  address: string | null;
-  status: string | null;
+  name?: string | null;
+  jobNumber?: string | null;
+  client?: string | null;
+  address?: string | null;
+  status?: string | null;
   clientNumber?: string | null;
   clientEmail?: string | null;
   startDate?: string | null;
@@ -825,19 +825,19 @@ export interface JobTaskDto {
 
 export interface JobTaskRequest {
   title: string;
-  status: string | null;
-  notes: string | null;
-  sortOrder: number | null;
+  status?: string | null;
+  notes?: string | null;
+  sortOrder?: number | null;
 }
 
 export interface TaskNotesRequest {
-  notes: string | null;
+  notes?: string | null;
 }
 
 export interface JobListQuery {
-  status: string | null;
-  supervisorId: number | null;
-  search: string | null;
+  status?: string | null;
+  supervisorId?: number | null;
+  search?: string | null;
 }
 
 /**
@@ -859,7 +859,7 @@ export interface JobLinkRequest {
   label: string;
   /** Accepts `path` too, which is what the legacy column is called. */
   url: string;
-  sortOrder: number | null;
+  sortOrder?: number | null;
 }
 
 /**
@@ -882,7 +882,7 @@ export interface UploadFileRequest {
 
 export interface PrepareUploadRequest {
   /** Attaches the upload to a specific note within the diary entry. */
-  noteId: number | null;
+  noteId?: number | null;
   files: UploadFileRequest[];
 }
 
@@ -897,7 +897,7 @@ export interface PreparedUploadDto {
 }
 
 export interface ConfirmUploadRequest {
-  noteId: number | null;
+  noteId?: number | null;
   storedName: string;
   originalName: string;
   mimeType: string;
@@ -1001,8 +1001,8 @@ export interface NotificationPrefsDto {
  * without having to know the other's state.
  */
 export interface UpdatePrefsRequest {
-  notifyActionNotes: boolean | null;
-  notifyCallForward: boolean | null;
+  notifyActionNotes?: boolean | null;
+  notifyCallForward?: boolean | null;
 }
 
 export interface PushKeys {
@@ -1056,13 +1056,13 @@ export interface ProgressRequest {
   jobId?: number;
   date: string;
   percentComplete: number;
-  milestone: string | null;
-  description: string | null;
+  milestone?: string | null;
+  description?: string | null;
   photos?: string[];
 }
 
 export interface ProgressListQuery {
-  jobId: number | null;
+  jobId?: number | null;
 }
 
 // ── reports ─────────────────────────────────────────────────────
@@ -1071,12 +1071,12 @@ export interface ProgressListQuery {
  * The query string every report shares.
  */
 export interface ReportQueryParams {
-  jobId: number | null;
-  supervisorId: number | null;
-  authorId: number | null;
-  dateFrom: string | null;
-  dateTo: string | null;
-  status: string | null;
+  jobId?: number | null;
+  supervisorId?: number | null;
+  authorId?: number | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  status?: string | null;
 }
 
 /**
@@ -1303,9 +1303,9 @@ export interface WorkerDto {
 
 export interface WorkerRequest {
   name: string;
-  trade: string | null;
-  color: string | null;
-  active: boolean | null;
+  trade?: string | null;
+  color?: string | null;
+  active?: boolean | null;
 }
 
 export interface AbsenceDto {
@@ -1335,10 +1335,10 @@ export interface AllocationDto {
 
 export interface AllocationRequest {
   workerId: number;
-  jobId: number | null;
-  maintenanceJobId: number | null;
+  jobId?: number | null;
+  maintenanceJobId?: number | null;
   assignedDate: string;
-  note: string | null;
+  note?: string | null;
 }
 
 export interface MaintenanceJobDto {
@@ -1351,9 +1351,9 @@ export interface MaintenanceJobDto {
 
 export interface MaintenanceJobRequest {
   name: string;
-  reference: string | null;
-  address: string | null;
-  status: string | null;
+  reference?: string | null;
+  address?: string | null;
+  status?: string | null;
 }
 
 export interface DayNoteDto {
@@ -1453,11 +1453,11 @@ export interface EmailSettingsDto {
  * form can be re-saved without the password being present in the page.
  */
 export interface EmailSettingsRequest {
-  smtpHost: string | null;
-  smtpPort: number | null;
-  smtpUser: string | null;
-  smtpPass: string | null;
-  smtpFrom: string | null;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpUser?: string | null;
+  smtpPass?: string | null;
+  smtpFrom?: string | null;
   smtpSecure?: boolean;
 }
 
@@ -1477,11 +1477,11 @@ export interface UserRequest {
   name: string;
   email: string;
   role: string;
-  phone: string | null;
+  phone?: string | null;
   /** Defaults to active: the admin form's checkbox starts ticked. */
   active?: boolean;
   /** Required on create. On update, absent or empty means "unchanged". */
-  password: string | null;
+  password?: string | null;
 }
 
 export interface RecoveryCodeDto {
