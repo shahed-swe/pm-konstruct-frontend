@@ -70,6 +70,19 @@ export function BillingScreen() {
   // Coming back from Stripe's hosted checkout. Confirming here makes the
   // page show the new state at once rather than waiting for the webhook.
   const sessionId = params.get("session_id");
+  const outcome = params.get("checkout");
+
+  useEffect(() => {
+    if (outcome !== "cancelled") return;
+    toast({
+      title: "Checkout cancelled",
+      description: "Nothing was charged. The plan is still here when you want it.",
+    });
+    router.replace("/billing");
+    // Once per arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcome]);
+
   useEffect(() => {
     if (sessionId === null) return;
     confirmCheckout.mutate(sessionId, {

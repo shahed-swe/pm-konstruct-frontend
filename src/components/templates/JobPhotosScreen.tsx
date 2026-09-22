@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/atoms/Skeleton";
 import { BackLink } from "@/components/molecules/BackLink";
 import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
 import { EmptyState } from "@/components/molecules/EmptyState";
+import { PhotoLightbox } from "@/components/organisms/PhotoLightbox";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import {
   useBulkDeleteMedia,
@@ -61,6 +62,7 @@ export function JobPhotosScreen({ jobId }: { jobId: number }) {
   const input = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   const photos = useMemo(
@@ -183,12 +185,12 @@ export function JobPhotosScreen({ jobId }: { jobId: number }) {
 
             return (
               <li key={key} className="group relative">
-                <a
-                  href={photo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setLightbox(photos.indexOf(photo))}
+                  aria-label={`Open ${photo.originalName}`}
                   className={cn(
-                    "block aspect-square overflow-hidden rounded-lg border bg-muted",
+                    "block aspect-square w-full overflow-hidden rounded-lg border bg-muted",
                     isSelected && "ring-2 ring-primary",
                   )}
                 >
@@ -199,7 +201,7 @@ export function JobPhotosScreen({ jobId }: { jobId: number }) {
                     loading="lazy"
                     className="h-full w-full object-cover"
                   />
-                </a>
+                </button>
 
                 {mayEdit && (
                   <button
@@ -250,6 +252,15 @@ export function JobPhotosScreen({ jobId }: { jobId: number }) {
             ))}
           </ul>
         </section>
+      )}
+
+      {lightbox !== null && (
+        <PhotoLightbox
+          photos={photos}
+          index={lightbox}
+          onIndexChange={setLightbox}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
       {confirming && (

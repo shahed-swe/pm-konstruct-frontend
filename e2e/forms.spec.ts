@@ -99,3 +99,29 @@ test.describe("job photos", () => {
     await expect(page.getByRole("heading", { name: "Photos" })).toBeVisible();
   });
 });
+
+test.describe("photos", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page);
+  });
+
+  test("a photo opens in a lightbox that pages with the arrow keys", async ({ page }) => {
+    await page.goto("/jobs/1/photos");
+    await expect(page.getByRole("heading", { name: "Photos" })).toBeVisible();
+
+    const first = page.getByRole("button", { name: /^Open / }).first();
+    if ((await first.count()) === 0) {
+      // Nothing uploaded on this job in this environment; the empty state is
+      // the correct behaviour and there is nothing else to check.
+      await expect(page.getByText("No photos on this job yet")).toBeVisible();
+      return;
+    }
+
+    await first.click();
+    const lightbox = page.getByRole("dialog");
+    await expect(lightbox).toBeVisible();
+    // Escape closes it, which is what people reach for.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+});

@@ -15,6 +15,7 @@ import { Button } from "@/components/atoms/Button";
 import { Textarea } from "@/components/atoms/Textarea";
 import { Card, CardContent } from "@/components/molecules/Card";
 import { MediaThumb } from "@/components/molecules/MediaThumb";
+import { PhotoLightbox } from "@/components/organisms/PhotoLightbox";
 import {
   ActionStatusButtons,
   type ActionStatus,
@@ -61,6 +62,7 @@ export function DiaryNoteCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(note.content);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const [comment, setComment] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -72,6 +74,10 @@ export function DiaryNoteCard({
     commentsOpen,
   );
   const addComment = useAddNoteComment(entryId, note.id);
+
+  // Only the images are paged through; a PDF in the set would be a blank
+  // frame with arrows either side of it.
+  const images = media.filter((m) => m.mimeType.startsWith("image/"));
 
   function save() {
     const trimmed = draft.trim();
@@ -142,7 +148,7 @@ export function DiaryNoteCard({
                 <MediaThumb
                   media={m}
                   className="h-full w-full"
-                  onOpen={() => window.open(m.url, "_blank", "noopener")}
+                  onOpen={() => setLightbox(images.indexOf(m))}
                   onRemove={
                     editable
                       ? () => removeMedia.mutate({ id: m.id, jobMedia: false })
@@ -291,6 +297,15 @@ export function DiaryNoteCard({
           </div>
         )}
       </CardContent>
+
+      {lightbox !== null && (
+        <PhotoLightbox
+          photos={images}
+          index={lightbox}
+          onIndexChange={setLightbox}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </Card>
   );
 }
