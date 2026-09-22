@@ -7,6 +7,8 @@
  */
 import type { BrandingDto, MeResponse } from "@/lib/api/types";
 import { QueryProvider } from "@/lib/query/provider";
+import { Toaster } from "@/components/molecules/Toast";
+import { TooltipProvider } from "@/components/molecules/Tooltip";
 import { SessionProvider } from "./SessionProvider";
 
 interface Props {
@@ -19,7 +21,13 @@ export function AppProviders({ session, branding, children }: Props) {
   return (
     <QueryProvider>
       <SessionProvider session={session} branding={branding}>
-        {children}
+        {/* 200ms rather than the 700ms default: these tooltips carry the
+            full job address behind a truncated label, and waiting most of a
+            second to read it is what made people give up on them. */}
+        <TooltipProvider delayDuration={200}>
+          {children}
+          <Toaster />
+        </TooltipProvider>
       </SessionProvider>
     </QueryProvider>
   );

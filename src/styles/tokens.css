@@ -65,6 +65,31 @@
   /* Surfaces that lift on hover, rather than changing colour. */
   --elevate-1: rgb(0 0 0 / 0.03);
   --elevate-2: rgb(0 0 0 / 0.06);
+
+  /*
+   * Outlines on controls that sit on an unknown background.
+   *
+   * A translucent black rather than a border colour, so an outline button
+   * reads correctly on a card, on the sidebar and on a coloured banner
+   * without three variants. Copied from the current app, where the values
+   * come from the Replit theme plugin it was built with.
+   */
+  --button-outline: rgb(0 0 0 / 0.12);
+  --badge-outline: rgb(0 0 0 / 0.06);
+
+  /*
+   * The border on a filled control: the fill, darkened.
+   *
+   * The plugin the current app uses derives this at build time from an
+   * "intensity" of -8. `color-mix` does the same thing in the browser, which
+   * means a company's own primary colour gets a matching border for free --
+   * with the plugin, a branded button had a border computed from the default
+   * orange.
+   */
+  --primary-border: color-mix(in srgb, hsl(var(--primary)) 92%, black);
+  --secondary-border: color-mix(in srgb, hsl(var(--secondary)) 92%, black);
+  --destructive-border: color-mix(in srgb, hsl(var(--destructive)) 92%, black);
+  --sidebar-primary-border: color-mix(in srgb, hsl(var(--sidebar-primary)) 92%, black);
 }
 
 :root[data-theme="dark"] {
@@ -106,6 +131,10 @@
 
   --elevate-1: rgb(255 255 255 / 0.04);
   --elevate-2: rgb(255 255 255 / 0.09);
+
+  /* Lightened rather than darkened: on a dark surface, black disappears. */
+  --button-outline: rgb(255 255 255 / 0.10);
+  --badge-outline: rgb(255 255 255 / 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -147,5 +176,8 @@
 
     --elevate-1: rgb(255 255 255 / 0.04);
     --elevate-2: rgb(255 255 255 / 0.09);
+
+    --button-outline: rgb(255 255 255 / 0.10);
+    --badge-outline: rgb(255 255 255 / 0.06);
   }
 }
