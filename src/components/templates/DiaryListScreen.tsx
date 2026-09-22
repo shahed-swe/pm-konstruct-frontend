@@ -50,16 +50,25 @@ const STATUS_BADGE: Record<string, string> = {
  * What the card shows as the entry's gist.
  *
  * An inspection form files itself as a diary entry whose `workCompleted`
- * begins "SITE INSPECTION"; for those the note is the readable part, so it
- * wins. Ported from the legacy, which worked the same way.
+ * begins "SITE INSPECTION"; for those the entry's own note is the readable
+ * part, so it wins. That much is ported from the legacy.
+ *
+ * `firstNote` is not: since notes replaced the single work-completed box, an
+ * entry written through the diary form leaves `workCompleted` empty and puts
+ * everything in its notes -- so the legacy list said "Diary entry" on every
+ * such row, which is most of them. Falling through to the first note gives
+ * the list something to say.
  */
 function preview(entry: DiaryEntryDto): { text: string; isForm: boolean } {
   const work = entry.workCompleted.trim();
   const note = (entry.notes ?? "").trim();
+  const first = (entry.firstNote ?? "").trim();
   const isForm =
     work.toUpperCase().startsWith("SITE INSPECTION") ||
     note.toUpperCase().includes("SITE INSPECTION");
-  const text = isForm && note !== "" ? note : work !== "" ? work : note;
+
+  if (isForm && note !== "") return { text: note, isForm };
+  const text = work !== "" ? work : note !== "" ? note : first;
   return { text: text === "" ? "Diary entry" : text, isForm };
 }
 
@@ -209,6 +218,11 @@ export function DiaryListScreen() {
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span>{formatDate(entry.date)}</span>
                         {entry.time !== null && <span>{entry.time}</span>}
+                        {(entry.noteCount ?? 0) > 1 && (
+                          <span>
+                            {entry.noteCount} notes
+                          </span>
+                        )}
                         {entry.authorName !== null && entry.authorName !== undefined && (
                           <span className="flex items-center gap-1">
                             <User className="h-3 w-3" aria-hidden="true" />

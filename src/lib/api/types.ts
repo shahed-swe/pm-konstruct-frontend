@@ -490,6 +490,16 @@ export interface DiaryEntryDto extends WeatherDto {
    * entry itself stays, because it is a site record.
    */
   authorName?: string | null;
+  /**
+   * The first note, and how many there are.
+   *
+   * An entry written through the diary form leaves `workCompleted` empty
+   * and puts everything in its notes, so a list built from the entry's own
+   * fields alone shows "Diary entry" on every row -- which is what the
+   * legacy list did. These let it show the entry's actual first line.
+   */
+  firstNote?: string | null;
+  noteCount?: number | null;
 }
 
 export interface DiaryEntryRequest {
