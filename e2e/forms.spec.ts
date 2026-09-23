@@ -109,7 +109,15 @@ test.describe("photos", () => {
     await page.goto("/jobs/1/photos");
     await expect(page.getByRole("heading", { name: "Photos" })).toBeVisible();
 
+    // The list is fetched on the client, so the page renders skeletons before
+    // it renders either outcome. `count()` does not auto-wait, so asking it
+    // straight away reads "no photos" from a list that has not arrived yet --
+    // and then the empty state is not on the page either, because the page is
+    // still loading. Wait for whichever of the two actually turns up.
     const first = page.getByRole("button", { name: /^Open / }).first();
+    const empty = page.getByText("No photos on this job yet");
+    await expect(first.or(empty)).toBeVisible();
+
     if ((await first.count()) === 0) {
       // Nothing uploaded on this job in this environment; the empty state is
       // the correct behaviour and there is nothing else to check.
