@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Ships the server and only the traced dependencies, so the production
+  // image carries neither the source nor the full node_modules tree.
+  output: "standalone",
   // The API is a separate service. In development it runs on 8081; in
   // production the two sit behind one origin, which is why the client always
   // calls a same-origin `/api` path and never a hardcoded host.
